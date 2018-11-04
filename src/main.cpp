@@ -1,15 +1,15 @@
 #include <iostream>
 
-#include "skeletonapp.h"
+#include "vktutorialapp.h"
 
-SkeletonApp skeleton;
+rake::vlkn::vkTutorialApp vktutorialapp;
 
 int main(int argv, char* argc[])
 {
     if (argv == 1) {
-        skeleton.main();
+        vktutorialapp.main();
     } else {
-        skeleton.main(argv, argc);
+        vktutorialapp.main(argv, argc);
     }
     return 0;
 }

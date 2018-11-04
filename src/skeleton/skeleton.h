@@ -5,6 +5,7 @@
 #include <vector>
 #include <ostream>
 
+namespace rake { namespace vlkn {
 /**
  * @brief Skeleton Base class
  * 
@@ -51,5 +52,7 @@ inline std::ostream& operator<<(std::ostream& out, const Skeleton::Version_t& ob
 {
     return out << obj.major << "." << obj.minor << "." << obj.patch << "." << obj.compile;
 }
+
+}}  // namespace rake::vlkn
 
 #endif  // Skeleton_H
