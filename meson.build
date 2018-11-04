@@ -1,11 +1,11 @@
 
 project(
-    'Skeletal Application Framework',
+    'Vulkan Tutorial',
     'cpp',
     version : '0.0.0', # This is oveverridden in the conf_data section
     default_options: 
     [
-        'cpp_std=c++14',
+        'cpp_std=c++17',
         'b_lundef=false',
         'b_sanitize=none',
         'warning_level=3',
@@ -13,7 +13,7 @@ project(
     meson_version: '>=0.48.0'
 )
 
-executable_name = 'skeleton'
+executable_name = 'vktut'
 
 pkgconfig = import('pkgconfig')
 
@@ -36,35 +36,46 @@ configure_file(input : 'src/config.h.in',
               output : 'config.h',
               configuration : conf_data)
 
-skeleton_src = [
-    'src/skeletonapp.cpp',
-    'src/main.cpp'
+vktutorial_src = [
+    'src/vulkan/VulkanFunctions.cpp',
+    'src/vktutorialapp.cpp',
+    'src/main.cpp'    
 ]
 
-skeleton_include_directories = [
+vktutorial_include_directories = [
     include_directories('src/'),
     include_directories('include/'),
 	include_directories('thirdparty/include/'),
-    include_directories('/usr/lib/llvm-8/include/c++/v1/')
+    include_directories('/usr/lib/llvm-8/include/c++/v1/'),
+    include_directories('/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include/')
     ]
 
-skeleton_cflags = ['-stdlib=libc++']
-skeleton_ldflags = [
+vktutorial_cflags = [
+    '-stdlib=libc++',
+    '-DVK_NO_PROTOTYPES',
+    '-DVK_USE_PLATFORM_XCB_KHR'
+    ]
+
+vktutorial_ldflags = [
     '-lm',
     '-lc++',
-    '-lc++abi']
+    '-lc++abi',
+    '-ldl'
+    ]
 
+xcb = dependency('xcb')
+#sdl = dependency('sdl2')
 
-skeleton_deps = []
+vktutorial_deps = [xcb]#, sdl]
 
-skeleton = executable(
+vktutorial = executable(
     executable_name,
-    skeleton_src,
+    vktutorial_src,
     install : true, 
-    dependencies: skeleton_deps,
-    include_directories: skeleton_include_directories,
-    cpp_args: skeleton_cflags,
-    link_args: skeleton_ldflags
+    dependencies: vktutorial_deps,
+    include_directories: vktutorial_include_directories,
+    cpp_args: vktutorial_cflags,
+    link_args: vktutorial_ldflags
 )
 
 install_data('LICENSE', install_dir: join_paths('share/doc', executable_name))

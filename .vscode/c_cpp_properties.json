@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/**",
+                "/usr/lib/llvm-8/include/c++/v1/**",
+                "/mnt/store/opt/include/**",
+                "/mnt/stre/opt/include/glm/ext/**",
+                "/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}
