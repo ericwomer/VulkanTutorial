@@ -9,12 +9,10 @@
 #include "vktutorialapp.h"
 #include "config.h"
 
-constexpr int width = 1680;
-constexpr int height = 1050;
-
 #include "vulkan/VulkanFunctions.h"
 
 namespace rake { namespace vlkn {
+
 /**
  * @brief Create a vkDebugUtilsMessengerEXT object
  *
@@ -54,6 +52,10 @@ void destroy_debug_utils_messenger_ext(VkInstance instance,
     }
 }
 
+/**
+ * @brief Construct a new vk Tutorial App::vk Tutorial App object
+ * 
+ */
 vkTutorialApp::vkTutorialApp()
     : connection()
     , handle()
@@ -65,9 +67,12 @@ vkTutorialApp::vkTutorialApp()
     app_description.push_back(std::string("** nothing else follows ** \n"));
 }
 
-// All of the application starts here
-// if any parameters are used they are handled
-// with member vars.
+/**
+ * @brief // All of the application starts here if any parameters 
+ * are used they are handled with member vars.
+ * 
+ * @return int 
+ */
 int vkTutorialApp::main()
 {
     // SDL_Event event;
@@ -88,7 +93,12 @@ int vkTutorialApp::main()
     return 0;
 }
 
-// This is the main that handles parameters
+/**
+ * @brief This is the main that handles parameters
+ * 
+ * @param params 
+ * @return int 
+ */
 int vkTutorialApp::main(std::vector<std::string>& params)
 {
     // std::vector<std::string> actions;
@@ -131,8 +141,14 @@ int vkTutorialApp::main(std::vector<std::string>& params)
     return main();
 }
 
-// This main converts c style parameters to c++ strings
-// then passes it to main that handles the actual parametrs.
+/**
+ * @brief This main converts c style parameters to c++ strings
+ * then passes it to main that handles the actual parametrs.
+ * 
+ * @param argv 
+ * @param argc 
+ * @return int 
+ */
 int vkTutorialApp::main(int argv, char* argc[])
 {
     // Start here if there are params
@@ -145,6 +161,10 @@ int vkTutorialApp::main(int argv, char* argc[])
     return main(params);
 }
 
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::help(void)
 {
     std::cout << "Usage: " << app_name << " [options] files...\n\n";
@@ -156,8 +176,10 @@ void vkTutorialApp::help(void)
     std::cout << " -V, --version \t\t Print the version and exit.\n";
 }
 
-// VK Interface
-
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::init_window()
 {
     int screen_index = 0;
@@ -176,13 +198,12 @@ void vkTutorialApp::init_window()
     }
 
     xcb_screen_t* screen = screen_iterator.data;
-
     handle = xcb_generate_id(connection);
 
     uint32_t value_list[] = {screen->white_pixel,
                              XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_STRUCTURE_NOTIFY};
 
-    xcb_create_window(connection, XCB_COPY_FROM_PARENT, handle, screen->root, 29, 29, 500, 500, 0,
+    xcb_create_window(connection, XCB_COPY_FROM_PARENT, handle, screen->root, 29, 29, this->width, this->height, 0,
                       XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
                       value_list);
 
@@ -192,11 +213,21 @@ void vkTutorialApp::init_window()
                         strlen(app_name.c_str()), app_name.c_str());
 }
 
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::init_input()
 {
     // SDL_Init(SDL_INIT_EVENTS);
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::rendering_loop()
 {
     xcb_intern_atom_cookie_t protocols_cookie = xcb_intern_atom(connection, 1, 12, "WM_PROTOCOLS");
@@ -272,10 +303,10 @@ bool vkTutorialApp::rendering_loop()
 }
 
 /**
-	 * @brief Get the VkExtensionProperties object and fill extensionNames and
-	 * extensionCount
-	 *
-	 */
+* @brief Get the VkExtensionProperties object and fill extensionNames and
+* extensionCount
+*
+*/
 std::vector<const char*> vkTutorialApp::get_required_extensions()
 {
     uint32_t instanceExtensionCount = 0;
@@ -384,6 +415,10 @@ void vkTutorialApp::create_instance()
     }
 }
 
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::pick_physical_device()
 {
     uint32_t deviceCount = 0;
@@ -407,13 +442,87 @@ void vkTutorialApp::pick_physical_device()
     }
 }
 
+/**
+ * @brief 
+ * 
+ * @param device 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::is_device_suitable(VkPhysicalDevice device)
 {
     QueueFamilyIndices indicies = find_queue_families(device);
+    bool extensionSupported = check_device_extension_support(device);
+    bool swapChainAdequate = false;
 
-    return indicies.is_complete();
+    if (extensionSupported) {
+        SwapChainSupportDetails swapChainSupport = query_swap_chain_support(device);
+        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+    }
+
+    return indicies.is_complete() && extensionSupported && swapChainAdequate;
 }
 
+/**
+ * @brief 
+ * 
+ * @param device 
+ * @return true 
+ * @return false 
+ */
+bool vkTutorialApp::check_device_extension_support(VkPhysicalDevice device)
+{
+    uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for (const auto& extension : availableExtensions) {
+        requiredExtensions.erase(extension.extensionName);
+    }
+
+    return requiredExtensions.empty();
+}
+
+/**
+ * @brief 
+ * 
+ * @param device 
+ * @return rake::vlkn::vkTutorialApp::SwapChainSupportDetails 
+ */
+rake::vlkn::vkTutorialApp::SwapChainSupportDetails vkTutorialApp::query_swap_chain_support(VkPhysicalDevice device)
+{
+    SwapChainSupportDetails details;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+    uint32_t formatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+    if (formatCount != 0) {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+    }
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+    if (presentModeCount != 0) {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+    }
+
+    return details;
+}
+
+/**
+ * @brief 
+ * 
+ * @param device 
+ * @return vkTutorialApp::QueueFamilyIndices 
+ */
 vkTutorialApp::QueueFamilyIndices vkTutorialApp::find_queue_families(VkPhysicalDevice device)
 {
     QueueFamilyIndices indices;
@@ -444,6 +553,67 @@ vkTutorialApp::QueueFamilyIndices vkTutorialApp::find_queue_families(VkPhysicalD
     return indices;
 }
 
+/**
+ * @brief 
+ * 
+ * @param availableFormats 
+ * @return VkSurfaceFormatKHR 
+ */
+VkSurfaceFormatKHR vkTutorialApp::choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+{
+    if (availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED) {
+        return {VK_FORMAT_B8G8R8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    }
+
+    for (const auto& availableFomat : availableFormats) {
+        if (availableFomat.format == VK_FORMAT_B8G8R8_UNORM &&
+            availableFomat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            return availableFomat;
+        }
+    }
+
+    return availableFormats[0];
+}
+
+/**
+ * @brief 
+ * 
+ * @param availablePresentMode 
+ * @return VkPresentModeKHR 
+ */
+VkPresentModeKHR vkTutorialApp::choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes)
+{
+    VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
+
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return availablePresentMode;
+        } else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            bestMode = availablePresentMode;
+        }
+    }
+
+    return bestMode;
+}
+
+VkExtent2D vkTutorialApp::choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities)
+{
+    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+        return capabilities.currentExtent;
+    } else {
+        VkExtent2D actualExtent = {this->width, this->height};
+
+        actualExtent.width = std::max(capabilities.minImageExtent.width,
+                                      std::min(capabilities.maxImageExtent.width, actualExtent.width));
+        actualExtent.height = std::max(capabilities.minImageExtent.height,
+                                       std::min(capabilities.maxImageExtent.height, actualExtent.height));
+    }
+}
+
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::create_logical_device()
 {
     familyIndicies = find_queue_families(physicalDevice);
@@ -469,7 +639,8 @@ void vkTutorialApp::create_logical_device()
     createInfo.queueCreateInfoCount = queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.pEnabledFeatures = &deviceFeatures;
-    createInfo.enabledExtensionCount = 0;
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
     if (enableValidationLayers) {
         createInfo.enabledLayerCount = validationLayers.size();
@@ -483,12 +654,20 @@ void vkTutorialApp::create_logical_device()
     }
 }
 
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::get_device_queues()
 {
     vkGetDeviceQueue(device, familyIndicies.presentFamily.value(), 0, &presentQueue);
     vkGetDeviceQueue(device, familyIndicies.graphicsFamily.value(), 0, &graphicsQueue);
 }
 
+/**
+ * @brief 
+ * 
+ */
 void vkTutorialApp::create_surface()
 {
     VkXcbSurfaceCreateInfoKHR surface_create_info = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR, nullptr, 0,
@@ -500,9 +679,9 @@ void vkTutorialApp::create_surface()
 }
 
 /**
-	 * @brief init Vulkan
-	 *
-	 */
+* @brief init Vulkan
+*
+*/
 void vkTutorialApp::init_vulkan()
 {
     load_vulkan_library();
@@ -516,12 +695,66 @@ void vkTutorialApp::init_vulkan()
     create_logical_device();
     load_device_entry_level_points();
     get_device_queues();
+    create_swap_chain();
+}
+
+void vkTutorialApp::create_swap_chain()
+{
+    SwapChainSupportDetails swapChainSupport = query_swap_chain_support(physicalDevice);
+    VkSurfaceFormatKHR surfaceFomat = choose_swap_surface_format(swapChainSupport.formats);
+    VkPresentModeKHR presentMode = choose_swap_present_mode(swapChainSupport.presentModes);
+    VkExtent2D extent = choose_swap_extent(swapChainSupport.capabilities);
+
+    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
+        imageCount = swapChainSupport.capabilities.maxImageCount;
+    }
+
+    VkSwapchainCreateInfoKHR createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    createInfo.surface = surface;
+    createInfo.minImageCount = imageCount;
+    createInfo.imageFormat = surfaceFomat.format;
+    createInfo.imageColorSpace = surfaceFomat.colorSpace;
+    createInfo.imageExtent = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    QueueFamilyIndices indicies = find_queue_families(physicalDevice);
+    uint32_t queueFamilyIndicies[] = {indicies.graphicsFamily.value(), indicies.presentFamily.value()};
+
+    if (indicies.graphicsFamily != indicies.presentFamily) {
+        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices = queueFamilyIndicies;
+    } else {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;      // optional?
+        createInfo.pQueueFamilyIndices = nullptr;  // optional?
+    }
+
+    createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createInfo.presentMode = presentMode;
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create swap chain!");
+    }
+
+    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
+    swapchainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data());
+
+    swapchainImageFormat = surfaceFomat.format;
+    swapchainExtent = extent;
 }
 
 /**
-	 * @brief setupDebugCallback
-	 *
-	 */
+* @brief setupDebugCallback
+*
+*/
 void vkTutorialApp::setup_debug_callback()
 {
     if (!enableValidationLayers) {
@@ -546,9 +779,9 @@ void vkTutorialApp::setup_debug_callback()
 }
 
 /**
-	 * @brief vkTutorial cleanup.
-	 *
-	 */
+* @brief vkTutorial cleanup.
+*
+*/
 void vkTutorialApp::cleanup()
 {
     if (connection != nullptr) {
@@ -556,6 +789,7 @@ void vkTutorialApp::cleanup()
         xcb_disconnect(connection);
     }
 
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyDevice(device, nullptr);
 
     if (enableValidationLayers) {
@@ -568,6 +802,12 @@ void vkTutorialApp::cleanup()
     // SDL_Quit();
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::load_vulkan_library()
 {
 #if defined(VK_USE_PLATFORM_XCB_KHR)
@@ -582,6 +822,12 @@ bool vkTutorialApp::load_vulkan_library()
     }
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::load_exported_entry_points()
 {
 #if defined(VK_USE_PLATFORM_XCB_KHR)
@@ -598,6 +844,12 @@ bool vkTutorialApp::load_exported_entry_points()
     return true;
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::load_global_entry_points()
 {
 #define VK_GLOBAL_LEVEL_FUNCTION(fun)                                                      \
@@ -611,6 +863,12 @@ bool vkTutorialApp::load_global_entry_points()
     return true;
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::load_instance_level_entry_points()
 {
 #define VK_INSTANCE_LEVEL_FUNCTION(fun)                                                      \
@@ -623,6 +881,12 @@ bool vkTutorialApp::load_instance_level_entry_points()
     return true;
 }
 
+/**
+ * @brief 
+ * 
+ * @return true 
+ * @return false 
+ */
 bool vkTutorialApp::load_device_entry_level_points()
 {
 #define VK_DEVICE_LEVEL_FUNCTION(fun)                                                        \
@@ -634,4 +898,5 @@ bool vkTutorialApp::load_device_entry_level_points()
 #include "vulkan/VulkanFunctions.inl"
     return true;
 }
+
 }}  // namespace rake::vlkn

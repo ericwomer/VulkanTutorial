@@ -33,6 +33,9 @@
 #include <dlfcn.h>
 #endif
 
+constexpr int global_width = 1680;
+constexpr int global_height = 1050;
+
 namespace rake { namespace vlkn {
 /**
  * @brief Static list of application validation layers for Vulkan debugging
@@ -42,6 +45,9 @@ const std::vector<const char*> validationLayers = {"VK_LAYER_LUNARG_standard_val
 
 // Default instance extensions
 const std::vector<const char*> instanceExtensions = {"VK_KHR_xcb_surface", "VK_KHR_surface"};
+
+// Default device extensions
+const std::vector<const char*> deviceExtensions = {"VK_KHR_swapchain"};
 
 #if defined(NDEBUG)
 const bool enableValidationLayers = false;
@@ -97,19 +103,26 @@ public:
 private:
     std::vector<std::string> actions;
 
-    void* VulkanLibrary = nullptr;
     // Vk Interface
-    VkInstance instance;
+    uint32_t width = global_width;
+    uint32_t height = global_height;
 
+    VkInstance instance;
     VkDebugUtilsMessengerEXT callback;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device;
     VkQueue graphicsQueue;
     VkSurfaceKHR surface;
     VkQueue presentQueue;
+    VkSwapchainKHR swapchain;
+    std::vector<VkImage> swapchainImages;
+    VkFormat swapchainImageFormat;
+    VkExtent2D swapchainExtent;
 
+    void* VulkanLibrary = nullptr;
     xcb_connection_t* connection;
     xcb_window_t handle;
+    bool canRender;
 
     // SDL_Window* window;
     void* window;                    // Eric: void for now until I get the windowing part up and runnint
@@ -119,41 +132,52 @@ private:
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphicsFamily;
         std::optional<uint32_t> presentFamily;
-
         bool is_complete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+    };
+
+    struct SwapChainSupportDetails {
+        VkSurfaceCapabilitiesKHR capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR> presentModes;
     };
 
     QueueFamilyIndices familyIndicies;
 
-    bool canRender;
     void init_window();
+    void init_vulkan();
     void init_input();
-    bool rendering_loop();
 
+    std::vector<const char*> get_required_extensions();
+    SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
+    QueueFamilyIndices find_queue_families(VkPhysicalDevice device);
+    bool check_validation_layer_support();
+    bool check_device_extension_support(VkPhysicalDevice device);
+    bool is_device_suitable(VkPhysicalDevice device);
+    void get_device_queues();
+    VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+    VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
+    VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+    void create_instance();
+    void pick_physical_device();
+    void create_logical_device();
+    void create_surface();
+    void create_swap_chain();
+
+    void setup_debug_callback();
+
+    bool rendering_loop();
     bool on_window_size_changed() { return true; }
     bool draw() { return true; }
     bool ready_to_draw() { return canRender; }
-    std::vector<const char*> get_required_extensions();
-    bool check_validation_layer_support();
-    void create_instance();
-    void pick_physical_device();
-
-    bool is_device_suitable(VkPhysicalDevice device);
-
-    QueueFamilyIndices find_queue_families(VkPhysicalDevice device);
-
-    void create_logical_device();
-    void get_device_queues();
-    void create_surface();
-    void init_vulkan();
-    void setup_debug_callback();
-    void cleanup();
 
     bool load_vulkan_library();
     bool load_exported_entry_points();
     bool load_global_entry_points();
     bool load_instance_level_entry_points();
     bool load_device_entry_level_points();
+
+    void cleanup();
 };
 }}      // namespace rake::vlkn
 #endif  // SKELETONAPP_H
