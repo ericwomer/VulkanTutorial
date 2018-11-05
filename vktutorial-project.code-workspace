@@ -44,6 +44,7 @@
 		"clangd.arguments": [
 			"-compile-commands-dir=/mnt/store/vkTutorial/build"
 		],
-		"C_Cpp.default.intelliSenseMode": "clang-x64"
+		"C_Cpp.default.intelliSenseMode": "clang-x64",
+		"glsllint.glslangValidatorPath": "/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/bin"
 	}
 }

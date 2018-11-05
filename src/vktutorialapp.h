@@ -118,6 +118,8 @@ private:
     std::vector<VkImage> swapchainImages;
     VkFormat swapchainImageFormat;
     VkExtent2D swapchainExtent;
+    std::vector<VkImageView> swapchainImageViews;
+    VkPipelineLayout pipelineLayout;
 
     void* VulkanLibrary = nullptr;
     xcb_connection_t* connection;
@@ -163,12 +165,14 @@ private:
     void create_logical_device();
     void create_surface();
     void create_swap_chain();
+    void create_image_views();
+    void create_graphics_pipeline();
 
     void setup_debug_callback();
 
     bool rendering_loop();
     bool on_window_size_changed() { return true; }
-    bool draw() { return true; }
+    bool draw();
     bool ready_to_draw() { return canRender; }
 
     bool load_vulkan_library();
@@ -176,6 +180,9 @@ private:
     bool load_global_entry_points();
     bool load_instance_level_entry_points();
     bool load_device_entry_level_points();
+
+    static std::vector<char> read_file(const std::string& filename);
+    VkShaderModule create_shader_module(const std::vector<char>& code);
 
     void cleanup();
 };
