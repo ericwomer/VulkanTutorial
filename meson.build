@@ -1,4 +1,3 @@
-
 project(
     'Vulkan Tutorial',
     'cpp',
@@ -6,8 +5,6 @@ project(
     default_options: 
     [
         'cpp_std=c++17',
-        'b_lundef=false',
-        'b_sanitize=none',
         'warning_level=3',
     ],
     meson_version: '>=0.48.0'
@@ -45,7 +42,7 @@ vktutorial_src = [
 vktutorial_include_directories = [
     include_directories('src/'),
     include_directories('include/'),
-	include_directories('thirdparty/include/'),
+    include_directories('thirdparty/include/'),
     include_directories('/usr/lib/llvm-8/include/c++/v1/'),
     include_directories('/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include/')
     ]
@@ -53,7 +50,8 @@ vktutorial_include_directories = [
 vktutorial_cflags = [
     '-stdlib=libc++',
     '-DVK_NO_PROTOTYPES',
-    '-DVK_USE_PLATFORM_XCB_KHR'
+    '-DVK_USE_PLATFORM_XCB_KHR',
+    '-g'
     ]
 
 vktutorial_ldflags = [

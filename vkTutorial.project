@@ -92,9 +92,7 @@
         <ClangCmpFlagsC/>
         <ClangCmpFlags/>
         <ClangPP/>
-        <SearchPaths>.
-src/
-/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include/**</SearchPaths>
+        <SearchPaths>/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include</SearchPaths>
       </Completion>
     </Configuration>
     <Configuration Name="Release" CompilerType="clang++" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">

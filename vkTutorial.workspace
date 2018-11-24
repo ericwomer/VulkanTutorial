@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CodeLite_Workspace Name="vkTutorial" Database="" Version="10.0.0">
+<CodeLite_Workspace Name="vkTutorial" Database="" Version="10.0.0" SWTLW="Yes">
+  <WorkspaceParserMacros/>
+  <WorkspaceParserPaths>
+    <Include Path="/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include"/>
+  </WorkspaceParserPaths>
   <Project Name="vkTutorial" Path="vkTutorial.project" Active="Yes"/>
   <BuildMatrix>
     <WorkspaceConfiguration Name="Debug" Selected="yes">

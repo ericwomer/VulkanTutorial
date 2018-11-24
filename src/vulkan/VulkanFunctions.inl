@@ -1,7 +1,7 @@
 
 /**
  * @brief These functions are always exposed by the vulkan library
- * 
+ *
  */
 #if !defined(VK_EXPORTED_FUNCTION)
 #define VK_EXPORTED_FUNCTION(fun)
@@ -14,7 +14,7 @@ VK_EXPORTED_FUNCTION(vkGetInstanceProcAddr)
 /**
  * @brief They allow checking what instance extensions are available
  * and allow creations of a Vulkan instance
- * 
+ *
  */
 #if !defined(VK_GLOBAL_LEVEL_FUNCTION)
 #define VK_GLOBAL_LEVEL_FUNCTION(fun)
@@ -28,8 +28,8 @@ VK_GLOBAL_LEVEL_FUNCTION(vkEnumerateInstanceLayerProperties)
 
 /**
  * @brief Allow for device queries and creation.
- * 
- * 
+ *
+ *
  */
 #if !defined(VK_INSTANCE_LEVEL_FUNCTION)
 #define VK_INSTANCE_LEVEL_FUNCTION(fun)
@@ -57,12 +57,25 @@ VK_INSTANCE_LEVEL_FUNCTION(vkDestroyImageView)
 VK_INSTANCE_LEVEL_FUNCTION(vkAcquireNextImageKHR)
 VK_INSTANCE_LEVEL_FUNCTION(vkCreateShaderModule)
 VK_INSTANCE_LEVEL_FUNCTION(vkDestroyShaderModule)
+VK_INSTANCE_LEVEL_FUNCTION(vkCreateRenderPass)
+VK_INSTANCE_LEVEL_FUNCTION(vkDestroyRenderPass)
+VK_INSTANCE_LEVEL_FUNCTION(vkCreateGraphicsPipelines)
+VK_INSTANCE_LEVEL_FUNCTION(vkDestroyPipeline)
+VK_INSTANCE_LEVEL_FUNCTION(vkDestroyFramebuffer)
+VK_INSTANCE_LEVEL_FUNCTION(vkDestroyCommandPool)
+VK_INSTANCE_LEVEL_FUNCTION(vkBeginCommandBuffer)
+VK_INSTANCE_LEVEL_FUNCTION(vkCmdBindPipeline)
+VK_INSTANCE_LEVEL_FUNCTION(vkFreeCommandBuffers)
+VK_INSTANCE_LEVEL_FUNCTION(vkDestroyFence)
+VK_INSTANCE_LEVEL_FUNCTION(vkWaitForFences)
+VK_INSTANCE_LEVEL_FUNCTION(vkResetFences)
+VK_INSTANCE_LEVEL_FUNCTION(vkCreateFence)
 
 #undef VK_INSTANCE_LEVEL_FUNCTION
 
 /**
  * @brief Used mainly for drawing
- * 
+ *
  */
 #if !defined(VK_DEVICE_LEVEL_FUNCTION)
 #define VK_DEVICE_LEVEL_FUNCTION(fun)
@@ -74,5 +87,16 @@ VK_DEVICE_LEVEL_FUNCTION(vkDestroyDevice)
 
 VK_DEVICE_LEVEL_FUNCTION(vkCreatePipelineLayout)
 VK_DEVICE_LEVEL_FUNCTION(vkDestroyPipelineLayout)
+VK_DEVICE_LEVEL_FUNCTION(vkCreateFramebuffer)
+VK_DEVICE_LEVEL_FUNCTION(vkCreateCommandPool)
+VK_DEVICE_LEVEL_FUNCTION(vkAllocateCommandBuffers)
+VK_DEVICE_LEVEL_FUNCTION(vkCmdBeginRenderPass)
+VK_DEVICE_LEVEL_FUNCTION(vkCmdDraw)
+VK_DEVICE_LEVEL_FUNCTION(vkCmdEndRenderPass)
+VK_DEVICE_LEVEL_FUNCTION(vkEndCommandBuffer)
+VK_DEVICE_LEVEL_FUNCTION(vkCreateSemaphore)
+VK_DEVICE_LEVEL_FUNCTION(vkDestroySemaphore)
+VK_DEVICE_LEVEL_FUNCTION(vkQueueSubmit)
+VK_DEVICE_LEVEL_FUNCTION(vkQueuePresentKHR)
 
 #undef VK_DEVICE_LEVEL_FUNCTION
