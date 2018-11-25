@@ -77,3 +77,8 @@ vktutorial = executable(
 )
 
 install_data('LICENSE', install_dir: join_paths('share/doc', executable_name))
+
+if get_option('build-docs')
+    subdir('doc')
+endif
+
