@@ -325,6 +325,11 @@ bool vkTutorialApp::on_window_size_changed()
  */
 void vkTutorialApp::cleanup()
 {
+  if (device != VK_NULL_HANDLE)
+  {
+    vkDeviceWaitIdle(device);
+  }
+
   cleanup_swapchain();
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
