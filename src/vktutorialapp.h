@@ -210,6 +210,12 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   bool                     is_device_suitable(VkPhysicalDevice device);
   void                     get_device_queues();
   uint32_t                 find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+  void                     create_buffer(VkDeviceSize          size,
+                                         VkBufferUsageFlags    usage,
+                                         VkMemoryPropertyFlags properties,
+                                         VkBuffer&             buffer,
+                                         VkDeviceMemory&       bufferMemory);
+  void                     copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
   VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
   VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
