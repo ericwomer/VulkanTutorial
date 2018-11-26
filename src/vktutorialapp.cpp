@@ -300,28 +300,6 @@ bool vkTutorialApp::rendering_loop()
 
 /**
  * @brief
- * @return
- */
-bool vkTutorialApp::on_window_size_changed()
-{
-  recreate_swap_chain();
-
-  if (canRender)
-  {
-    create_render_pass();
-    create_frame_buffer();
-    create_graphics_pipeline();
-    create_command_pool();
-    create_command_buffers();
-
-    return true;  // ChildOnwindowSizeChanged();
-  }
-
-  return false;
-}
-
-/**
- * @brief
  */
 void vkTutorialApp::cleanup()
 {
@@ -331,6 +309,9 @@ void vkTutorialApp::cleanup()
   }
 
   cleanup_swapchain();
+
+  vkDestroyBuffer(device, indexBuffer, nullptr);
+  vkFreeMemory(device, indexBufferMemory, nullptr);
 
   vkDestroyBuffer(device, vertexBuffer, nullptr);
   vkFreeMemory(device, vertexBufferMemory, nullptr);
@@ -403,21 +384,13 @@ void vkTutorialApp::cleanup_swapchain()
   }
 }
 
-void vkTutorialApp::recreate_swap_chain()
+/**
+ * @brief
+ * @return
+ */
+bool vkTutorialApp::on_window_size_changed()
 {
-  if (device != VK_NULL_HANDLE)
-  {
-    vkDeviceWaitIdle(device);
-  }
-
-  cleanup_swapchain();
-
-  create_swap_chain();
-  create_image_views();
-  create_render_pass();
-  create_graphics_pipeline();
-  create_frame_buffer();
-  create_command_buffers();
+  return recreate_swap_chain();  // ChildOnwindowSizeChanged();
 }
 
 /**
@@ -866,9 +839,32 @@ void vkTutorialApp::init_vulkan()
   create_graphics_pipeline();
   create_frame_buffer();
   create_command_pool();
-  create_vertex_buffers();
+  create_vertex_buffer();
+  create_index_buffer();
   create_command_buffers();
   create_sync_objects();
+}
+
+bool vkTutorialApp::recreate_swap_chain()
+{
+  if (device != VK_NULL_HANDLE)
+  {
+    vkDeviceWaitIdle(device);
+  }
+
+  cleanup_swapchain();
+  create_swap_chain();
+
+  if (canRender)
+  {
+    create_image_views();
+    create_render_pass();
+    create_graphics_pipeline();
+    create_frame_buffer();
+    create_command_buffers();
+    return true;
+  }
+  return false;
 }
 
 uint32_t vkTutorialApp::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -930,7 +926,7 @@ void vkTutorialApp::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
 /**
  * @brief
  */
-void vkTutorialApp::create_vertex_buffers()
+void vkTutorialApp::create_vertex_buffer()
 {
   VkDeviceSize bufferSize = sizeof(verticies[0]) * verticies.size();
 
@@ -950,6 +946,34 @@ void vkTutorialApp::create_vertex_buffers()
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
   copy_buffer(stagingBuffer, vertexBuffer, bufferSize);
+  vkDestroyBuffer(device, stagingBuffer, nullptr);
+  vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+/**
+ * @brief
+ */
+void vkTutorialApp::create_index_buffer()
+{
+  VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+  VkBuffer       stagingBuffer;
+  VkDeviceMemory stagingBufferMemory;
+
+  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+                stagingBufferMemory);
+
+  void* data;
+  vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+  memcpy(data, indices.data(), (size_t)bufferSize);
+  vkUnmapMemory(device, stagingBufferMemory);
+
+  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+  copy_buffer(stagingBuffer, indexBuffer, bufferSize);
+
   vkDestroyBuffer(device, stagingBuffer, nullptr);
   vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
@@ -1144,8 +1168,9 @@ void vkTutorialApp::create_command_buffers()
     VkBuffer     vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[]       = {0};
     vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(verticies.size()), 1, 0, 0);
+    vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffers[i]);
 
     if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)

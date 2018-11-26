@@ -73,9 +73,12 @@ struct Vertex {
   }
 };
 
-const std::vector<Vertex> verticies = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+const std::vector<Vertex> verticies = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                       {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                       {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                       {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 /**
  * @brief Static list of application validation layers for Vulkan debugging
@@ -164,6 +167,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   std::vector<VkCommandBuffer> commandBuffers;
   VkBuffer                     vertexBuffer = VK_NULL_HANDLE;
   VkDeviceMemory               vertexBufferMemory;
+  VkBuffer                     indexBuffer;
+  VkDeviceMemory               indexBufferMemory;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -234,10 +239,11 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_command_pool();
   void create_command_buffers();
   void create_sync_objects();
-  void create_vertex_buffers();
+  void create_vertex_buffer();
+  void create_index_buffer();
 
   // Recreation
-  void recreate_swap_chain();
+  bool recreate_swap_chain();
 
   // Cleanup
   void cleanup();
