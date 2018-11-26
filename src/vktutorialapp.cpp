@@ -11,7 +11,7 @@
 
 #include "vulkan/VulkanFunctions.h"
 
-namespace rake { namespace vlkn {
+namespace Rake { namespace Application {
 
 /**
 * @brief Create a vkDebugUtilsMessengerEXT object
@@ -331,6 +331,9 @@ void vkTutorialApp::cleanup()
   }
 
   cleanup_swapchain();
+
+  vkDestroyBuffer(device, vertexBuffer, nullptr);
+  vkFreeMemory(device, vertexBufferMemory, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
   {
@@ -863,8 +866,60 @@ void vkTutorialApp::init_vulkan()
   create_graphics_pipeline();
   create_frame_buffer();
   create_command_pool();
+  create_vertex_buffers();
   create_command_buffers();
   create_sync_objects();
+}
+
+uint32_t vkTutorialApp::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+  VkPhysicalDeviceMemoryProperties memProperties;
+  vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+  for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+  {
+    if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+    {
+      return i;
+    }
+  }
+  throw std::runtime_error("Failed to suitable memory type!");
+}
+
+void vkTutorialApp::create_vertex_buffers()
+{
+  VkBufferCreateInfo bufferInfo = {};
+  bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bufferInfo.size               = sizeof(verticies[0]) * verticies.size();
+  bufferInfo.usage              = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create vertex buffer!");
+  }
+
+  VkMemoryRequirements memRequirements;
+  vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+  VkMemoryAllocateInfo allocInfo = {};
+  allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize       = memRequirements.size;
+  allocInfo.memoryTypeIndex =
+      find_memory_type(memRequirements.memoryTypeBits,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to allocate vertex buffer memory!");
+  }
+
+  vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+  void* data;
+  vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+  memcpy(data, verticies.data(), (size_t)bufferInfo.size);
+  vkUnmapMemory(device, vertexBufferMemory);
 }
 
 /**
@@ -990,8 +1045,7 @@ void vkTutorialApp::create_command_buffers()
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-    beginInfo.pInheritanceInfo         = nullptr;  // Optional
-
+    beginInfo.pInheritanceInfo         = nullptr;  // OptionalvkCmdDraw
     if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
     {
       throw std::runtime_error("Failed to begin recording command buffers!");
@@ -1010,8 +1064,12 @@ void vkTutorialApp::create_command_buffers()
 
     vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-    vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 
+    VkBuffer     vertexBuffers[] = {vertexBuffer};
+    VkDeviceSize offsets[]       = {0};
+    vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+    vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(verticies.size()), 1, 0, 0);
     vkCmdEndRenderPass(commandBuffers[i]);
 
     if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
@@ -1085,20 +1143,16 @@ void vkTutorialApp::create_render_pass()
   renderPassInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassInfo.attachmentCount        = 1;
   renderPassInfo.pAttachments           = &colorAttachment;
-
-  renderPassInfo.subpassCount = 1;
-  renderPassInfo.pSubpasses   = &subpass;
+  renderPassInfo.subpassCount           = 1;
+  renderPassInfo.pSubpasses             = &subpass;
 
   VkSubpassDependency dependency = {};
   dependency.srcSubpass          = VK_SUBPASS_EXTERNAL;
   dependency.dstSubpass          = 0;
-
-  dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.srcAccessMask = 0;
-
-  dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
+  dependency.srcStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.srcAccessMask       = 0;
+  dependency.dstStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.dstAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
   renderPassInfo.dependencyCount = 1;
   renderPassInfo.pDependencies   = &dependency;
 
@@ -1139,10 +1193,14 @@ void vkTutorialApp::create_graphics_pipeline()
 
   VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
   vertexInputInfo.sType                                = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertexInputInfo.vertexBindingDescriptionCount        = 0;
-  vertexInputInfo.pVertexAttributeDescriptions         = nullptr;  // optional
-  vertexInputInfo.vertexAttributeDescriptionCount      = 0;
-  vertexInputInfo.pVertexAttributeDescriptions         = nullptr;  // optional
+
+  auto bindingDescription   = Vertex::getBindingDescription();
+  auto attributeDescription = Vertex::getAttributesDescription();
+
+  vertexInputInfo.vertexBindingDescriptionCount   = 1;
+  vertexInputInfo.pVertexBindingDescriptions      = &bindingDescription;  // optional
+  vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size());
+  vertexInputInfo.pVertexAttributeDescriptions    = attributeDescription.data();  // optional
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
   inputAssembly.sType                                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1556,5 +1614,4 @@ std::vector<char> vkTutorialApp::read_file(const std::string& filename)
 
   return buffer;
 }
-
-}}  // namespace rake::vlkn
+}}  // namespace Rake::Application

@@ -2,7 +2,7 @@ project(
     'Vulkan Tutorial',
     'cpp',
     version : '0.0.0', # This is oveverridden in the conf_data section
-    default_options: 
+    default_options:
     [
         'cpp_std=c++17',
         'warning_level=3',
@@ -36,7 +36,7 @@ configure_file(input : 'src/config.h.in',
 vktutorial_src = [
     'src/vulkan/VulkanFunctions.cpp',
     'src/vktutorialapp.cpp',
-    'src/main.cpp'    
+    'src/main.cpp'
 ]
 
 vktutorial_include_directories = [
@@ -62,14 +62,16 @@ vktutorial_ldflags = [
     ]
 
 xcb = dependency('xcb')
+glm = dependency('glm')
+
 #sdl = dependency('sdl2')
 
-vktutorial_deps = [xcb]#, sdl]
+vktutorial_deps = [xcb, glm]#, sdl]
 
 vktutorial = executable(
     executable_name,
     vktutorial_src,
-    install : true, 
+    install : true,
     dependencies: vktutorial_deps,
     include_directories: vktutorial_include_directories,
     cpp_args: vktutorial_cflags,

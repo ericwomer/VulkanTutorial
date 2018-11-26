@@ -15,11 +15,14 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <array>
 
 #include <ostream>
 #include <fstream>
 
 #include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
+
 // #include <SDL.h>
 
 #include "skeleton/skeleton.h"
@@ -33,10 +36,46 @@
 #include <dlfcn.h>
 #endif
 
-namespace rake { namespace vlkn {
+namespace Rake { namespace Application {
 
 constexpr int global_width  = 640;
 constexpr int global_height = 480;
+
+struct Vertex {
+  glm::vec2 pos;
+  glm::vec3 color;
+
+  static VkVertexInputBindingDescription getBindingDescription()
+  {
+    VkVertexInputBindingDescription bindingDescription = {};
+    bindingDescription.binding                         = 0;
+    bindingDescription.stride                          = sizeof(Vertex);
+    bindingDescription.inputRate                       = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    return bindingDescription;
+  }
+
+  static std::array<VkVertexInputAttributeDescription, 2> getAttributesDescription()
+  {
+    std::array<VkVertexInputAttributeDescription, 2> attributesDescription = {};
+
+    attributesDescription[0].binding  = 0;
+    attributesDescription[0].location = 0;
+    attributesDescription[0].format   = VK_FORMAT_R32G32_SFLOAT;
+    attributesDescription[0].offset   = offsetof(Vertex, pos);
+
+    attributesDescription[1].binding  = 0;
+    attributesDescription[1].location = 1;
+    attributesDescription[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    attributesDescription[1].offset   = offsetof(Vertex, color);
+
+    return attributesDescription;
+  }
+};
+
+const std::vector<Vertex> verticies = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+                                       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 /**
  * @brief Static list of application validation layers for Vulkan debugging
@@ -69,7 +108,7 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
                                        VkDebugUtilsMessengerEXT     callback,
                                        const VkAllocationCallbacks* pAllocator);
 
-class vkTutorialApp : public Skeleton {
+class vkTutorialApp : public Rake::Base::Skeleton {
   public:
   // Core Application Public Interface Methods
   vkTutorialApp();
@@ -123,6 +162,8 @@ class vkTutorialApp : public Skeleton {
   std::vector<VkFramebuffer>   swapchainFramebuffers;
   VkCommandPool                commandPool;
   std::vector<VkCommandBuffer> commandBuffers;
+  VkBuffer                     vertexBuffer = VK_NULL_HANDLE;
+  VkDeviceMemory               vertexBufferMemory;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -168,9 +209,11 @@ class vkTutorialApp : public Skeleton {
   bool                     check_device_extension_support(VkPhysicalDevice device);
   bool                     is_device_suitable(VkPhysicalDevice device);
   void                     get_device_queues();
-  VkSurfaceFormatKHR       choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-  VkPresentModeKHR         choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
-  VkExtent2D               choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
+  uint32_t                 find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+  VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+  VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
+  VkExtent2D         choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 
   // Initialization
   void create_instance();
@@ -185,6 +228,7 @@ class vkTutorialApp : public Skeleton {
   void create_command_pool();
   void create_command_buffers();
   void create_sync_objects();
+  void create_vertex_buffers();
 
   // Recreation
   void recreate_swap_chain();
@@ -208,5 +252,5 @@ class vkTutorialApp : public Skeleton {
   bool load_instance_level_entry_points();
   bool load_device_entry_level_points();
 };
-}}      // namespace rake::vlkn
+}}      // namespace Rake::Application
 #endif  // SKELETONAPP_H

@@ -3,7 +3,7 @@
 
 #include "vktutorialapp.h"
 
-rake::vlkn::vkTutorialApp vktutorialapp;
+Rake::Application::vkTutorialApp vktutorialapp;
 
 int main(int argc, char* argv[])
 {

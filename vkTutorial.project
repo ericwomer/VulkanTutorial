@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="vkTutorial" Version="10.0.0" InternalType="">
+  <VirtualDirectory Name="doc">
+    <File Name="doc/meson.build"/>
+  </VirtualDirectory>
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00010001N0005Debug000000000000]]>
