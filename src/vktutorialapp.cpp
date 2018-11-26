@@ -1473,21 +1473,11 @@ void vkTutorialApp::create_swap_chain()
   VkSurfaceFormatKHR      surfaceFomat     = choose_swap_surface_format(swapChainSupport.formats);
   VkPresentModeKHR        presentMode      = choose_swap_present_mode(swapChainSupport.presentModes);
   VkExtent2D              extent           = choose_swap_extent(swapChainSupport.capabilities);
-  VkSwapchainKHR          old_swap_chain   = VK_NULL_HANDLE;
 
   uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
   if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
   {
     imageCount = swapChainSupport.capabilities.maxImageCount;
-  }
-
-  if (swapchain != VK_NULL_HANDLE)
-  {
-    old_swap_chain = swapchain;
-  }
-  else
-  {
-    old_swap_chain = VK_NULL_HANDLE;
   }
 
   if ((extent.width == 0) || (extent.height == 0))
@@ -1525,16 +1515,10 @@ void vkTutorialApp::create_swap_chain()
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   createInfo.presentMode    = presentMode;
   createInfo.clipped        = VK_TRUE;
-  createInfo.oldSwapchain   = old_swap_chain;
 
   if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS)
   {
     throw std::runtime_error("Failed to create swap chain!");
-  }
-
-  if (old_swap_chain != VK_NULL_HANDLE)
-  {
-    vkDestroySwapchainKHR(device, old_swap_chain, nullptr);
   }
 
   canRender = true;
