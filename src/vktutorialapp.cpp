@@ -310,6 +310,14 @@ void vkTutorialApp::cleanup()
 
   cleanup_swapchain();
 
+  vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+  for (size_t i = 0; i < swapchainImages.size(); i++)
+  {
+    vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+    vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+  }
+
   vkDestroyBuffer(device, indexBuffer, nullptr);
   vkFreeMemory(device, indexBufferMemory, nullptr);
 
@@ -836,13 +844,30 @@ void vkTutorialApp::init_vulkan()
   create_swap_chain();
   create_image_views();
   create_render_pass();
+  create_desctiptor_set_layout();
   create_graphics_pipeline();
   create_frame_buffer();
   create_command_pool();
   create_vertex_buffer();
   create_index_buffer();
+  create_uniform_buffers();
   create_command_buffers();
   create_sync_objects();
+}
+
+void vkTutorialApp::create_uniform_buffers()
+{
+  VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+  uniformBuffers.resize(swapchainImages.size());
+  uniformBuffersMemory.resize(swapchainImages.size());
+
+  for (size_t i = 0; i < swapchainImages.size(); i++)
+  {
+    create_buffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
+                  uniformBuffersMemory[i]);
+  }
 }
 
 bool vkTutorialApp::recreate_swap_chain()
@@ -978,6 +1003,25 @@ void vkTutorialApp::create_index_buffer()
   vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
+void vkTutorialApp::update_uniform_buffer(uint32_t currentImage)
+{
+  static auto startTime = std::chrono::high_resolution_clock::now();
+
+  auto  currentTime = std::chrono::high_resolution_clock::now();
+  float time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+  struct UniformBufferObject ubo = {};
+  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.proj  = glm::perspective(glm::radians(45.0f), swapchainExtent.width / (float)swapchainExtent.height, 0.1f, 10.0f);
+  ubo.proj[1][1] *= -1;
+
+  void* data;
+  vkMapMemory(device, uniformBuffersMemory[currentFrame], 0, sizeof(ubo), 0, &data);
+  memcpy(data, &ubo, sizeof(ubo));
+  vkUnmapMemory(device, uniformBuffersMemory[currentFrame]);
+}
+
 /**
  * @brief
  *
@@ -1002,6 +1046,8 @@ bool vkTutorialApp::draw()  // Eric: Draw is draw frame.
       std::cout << "Problem occurred during swap chain image acquisition!" << std::endl;
       return EXIT_FAILURE;
   }
+
+  update_uniform_buffer(imageIndex);
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1263,6 +1309,25 @@ void vkTutorialApp::create_render_pass()
   }
 }
 
+void vkTutorialApp::create_desctiptor_set_layout()
+{
+  VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+  uboLayoutBinding.binding                      = 0;
+  uboLayoutBinding.descriptorType               = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uboLayoutBinding.descriptorCount              = 1;
+  uboLayoutBinding.stageFlags                   = VK_SHADER_STAGE_VERTEX_BIT;
+  uboLayoutBinding.pImmutableSamplers           = nullptr;  // Optional
+
+  VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+  layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layoutInfo.bindingCount                    = 1;
+  layoutInfo.pBindings                       = &uboLayoutBinding;
+
+  if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create descriptor set layout!");
+  }
+}
 /**
 * @brief
 *
@@ -1373,9 +1438,9 @@ void vkTutorialApp::create_graphics_pipeline()
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
   pipelineLayoutInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount             = 0;        // optional
-  pipelineLayoutInfo.pSetLayouts                = nullptr;  // optional
-  pipelineLayoutInfo.pushConstantRangeCount     = 0;        // optional
+  pipelineLayoutInfo.setLayoutCount             = 1;                     // optional
+  pipelineLayoutInfo.pSetLayouts                = &descriptorSetLayout;  // optional
+  pipelineLayoutInfo.pushConstantRangeCount     = 0;                     // optional
   pipelineLayoutInfo.pPushConstantRanges        = nullptr;
 
   if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)

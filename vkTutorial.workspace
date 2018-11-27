@@ -2,7 +2,7 @@
 <CodeLite_Workspace Name="vkTutorial" Database="" Version="10.0.0" SWTLW="Yes">
   <WorkspaceParserMacros/>
   <WorkspaceParserPaths>
-    <Include Path="/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include"/>
+    <Include Path="/usr/include"/>
   </WorkspaceParserPaths>
   <Project Name="vkTutorial" Path="vkTutorial.project" Active="Yes"/>
   <BuildMatrix>

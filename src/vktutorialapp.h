@@ -21,7 +21,10 @@
 #include <fstream>
 
 #include <vulkan/vulkan.h>
+
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 // #include <SDL.h>
 
@@ -40,6 +43,12 @@ namespace Rake { namespace Application {
 
 constexpr int global_width  = 640;
 constexpr int global_height = 480;
+
+struct UniformBufferObject {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+};
 
 struct Vertex {
   glm::vec2 pos;
@@ -160,6 +169,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkExtent2D                   swapchainExtent;
   std::vector<VkImageView>     swapchainImageViews;
   VkRenderPass                 renderPass;
+  VkDescriptorSetLayout        descriptorSetLayout;
   VkPipelineLayout             pipelineLayout;
   VkPipeline                   graphicsPipeline;
   std::vector<VkFramebuffer>   swapchainFramebuffers;
@@ -169,6 +179,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkDeviceMemory               vertexBufferMemory;
   VkBuffer                     indexBuffer;
   VkDeviceMemory               indexBufferMemory;
+  std::vector<VkBuffer>        uniformBuffers;
+  std::vector<VkDeviceMemory>  uniformBuffersMemory;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -206,6 +218,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void init_input();
   void setup_debug_callback();
   bool draw();  // Vulkan-tutorial.com DrawFrame
+  void update_uniform_buffer(uint32_t currentImage);
 
   std::vector<const char*> get_required_extensions();
   SwapChainSupportDetails  query_swap_chain_support(VkPhysicalDevice device);
@@ -234,6 +247,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_swap_chain();
   void create_image_views();
   void create_render_pass();
+  void create_desctiptor_set_layout();
   void create_graphics_pipeline();
   void create_frame_buffer();
   void create_command_pool();
@@ -241,6 +255,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_sync_objects();
   void create_vertex_buffer();
   void create_index_buffer();
+  void create_uniform_buffers();
 
   // Recreation
   bool recreate_swap_chain();
