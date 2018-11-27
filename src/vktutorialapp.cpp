@@ -310,6 +310,7 @@ void vkTutorialApp::cleanup()
 
   cleanup_swapchain();
 
+  vkDestroyDescriptorPool(device, descriptorPool, nullptr);
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
   for (size_t i = 0; i < swapchainImages.size(); i++)
@@ -320,7 +321,6 @@ void vkTutorialApp::cleanup()
 
   vkDestroyBuffer(device, indexBuffer, nullptr);
   vkFreeMemory(device, indexBufferMemory, nullptr);
-
   vkDestroyBuffer(device, vertexBuffer, nullptr);
   vkFreeMemory(device, vertexBufferMemory, nullptr);
 
@@ -851,8 +851,66 @@ void vkTutorialApp::init_vulkan()
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
+  create_descriptor_pool();
+  create_descriptor_sets();
   create_command_buffers();
   create_sync_objects();
+}
+
+void vkTutorialApp::create_descriptor_sets()
+{
+  std::vector<VkDescriptorSetLayout> layouts(swapchainImages.size(), descriptorSetLayout);
+
+  VkDescriptorSetAllocateInfo allocInfo = {};
+  allocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  allocInfo.descriptorPool              = descriptorPool;
+  allocInfo.descriptorSetCount          = static_cast<uint32_t>(swapchainImages.size());
+  allocInfo.pSetLayouts                 = layouts.data();
+
+  descriptorSets.resize(swapchainImages.size());
+  if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to allocate descriptor sets");
+  }
+
+  for (size_t i = 0; i < swapchainImages.size(); i++)
+  {
+    VkDescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer                 = uniformBuffers[i];
+    bufferInfo.offset                 = 0;
+    bufferInfo.range                  = sizeof(UniformBufferObject);
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType                = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet               = descriptorSets[i];
+    descriptorWrite.dstBinding           = 0;
+    descriptorWrite.dstArrayElement      = 0;
+    descriptorWrite.descriptorType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite.descriptorCount      = 1;
+    descriptorWrite.pBufferInfo          = &bufferInfo;
+    descriptorWrite.pImageInfo           = nullptr;  // Optional
+    descriptorWrite.pTexelBufferView     = nullptr;  // Optional
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+  }
+}
+
+void vkTutorialApp::create_descriptor_pool()
+{
+  VkDescriptorPoolSize poolSize = {};
+  poolSize.type                 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  poolSize.descriptorCount      = static_cast<uint32_t>(swapchainImages.size());
+
+  VkDescriptorPoolCreateInfo poolInfo = {};
+  poolInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  poolInfo.poolSizeCount              = 1;
+  poolInfo.pPoolSizes                 = &poolSize;
+  poolInfo.maxSets                    = static_cast<uint32_t>(swapchainImages.size());
+
+  if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create descriptor pool!");
+  }
 }
 
 void vkTutorialApp::create_uniform_buffers()
@@ -1017,9 +1075,9 @@ void vkTutorialApp::update_uniform_buffer(uint32_t currentImage)
   ubo.proj[1][1] *= -1;
 
   void* data;
-  vkMapMemory(device, uniformBuffersMemory[currentFrame], 0, sizeof(ubo), 0, &data);
+  vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
   memcpy(data, &ubo, sizeof(ubo));
-  vkUnmapMemory(device, uniformBuffersMemory[currentFrame]);
+  vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
 /**
@@ -1035,6 +1093,7 @@ bool vkTutorialApp::draw()  // Eric: Draw is draw frame.
   uint32_t imageIndex;
   VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
                                           imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
   switch (result)
   {
     case VK_SUCCESS:
@@ -1216,6 +1275,8 @@ void vkTutorialApp::create_command_buffers()
     vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
+    vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+                            &descriptorSets[i], 0, nullptr);
     vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -1399,7 +1460,7 @@ void vkTutorialApp::create_graphics_pipeline()
   rasterizer.polygonMode                            = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth                              = 1.0f;
   rasterizer.cullMode                               = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace                              = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.frontFace                              = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable                        = VK_FALSE;
   rasterizer.depthBiasConstantFactor                = 0.0f;  // optional
   rasterizer.depthBiasClamp                         = 0.0f;  // optional

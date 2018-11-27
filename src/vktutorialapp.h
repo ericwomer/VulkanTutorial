@@ -181,6 +181,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkDeviceMemory               indexBufferMemory;
   std::vector<VkBuffer>        uniformBuffers;
   std::vector<VkDeviceMemory>  uniformBuffersMemory;
+  VkDescriptorPool             descriptorPool;
+  std::vector<VkDescriptorSet> descriptorSets;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -256,6 +258,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_vertex_buffer();
   void create_index_buffer();
   void create_uniform_buffers();
+  void create_descriptor_pool();
+  void create_descriptor_sets();
 
   // Recreation
   bool recreate_swap_chain();
