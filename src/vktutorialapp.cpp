@@ -6,6 +6,9 @@
 #include <thread>
 #include <chrono>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include "vktutorialapp.h"
 #include "config.h"
 
@@ -332,6 +335,8 @@ void vkTutorialApp::cleanup()
 
   cleanup_swapchain();
 
+  vkDestroySampler(device, textureSampler, nullptr);
+  vkDestroyImageView(device, textureImageView, nullptr);
   vkDestroyImage(device, textureImage, nullptr);
   vkFreeMemory(device, textureImageMemory, nullptr);
 
@@ -602,7 +607,10 @@ bool vkTutorialApp::is_device_suitable(VkPhysicalDevice device)
     swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
   }
 
-  return indicies.is_complete() && extensionSupported && swapChainAdequate;
+  VkPhysicalDeviceFeatures supportedFeatures;
+  vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+  return indicies.is_complete() && extensionSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
 }
 
 /**
@@ -799,6 +807,7 @@ void vkTutorialApp::create_logical_device()
   }
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
+  deviceFeatures.samplerAnisotropy        = VK_TRUE;
 
   VkDeviceCreateInfo createInfo      = {};
   createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -878,6 +887,7 @@ void vkTutorialApp::init_vulkan()
   create_command_pool();
   create_texture_image();
   create_texture_image_view();
+  create_texture_sampler();
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -885,6 +895,70 @@ void vkTutorialApp::init_vulkan()
   create_descriptor_sets();
   create_command_buffers();
   create_sync_objects();
+}
+
+/**
+ * @brief
+ */
+void vkTutorialApp::create_texture_sampler()
+{
+  VkSamplerCreateInfo samplerInfo     = {};
+  samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter               = VK_FILTER_LINEAR;
+  samplerInfo.minFilter               = VK_FILTER_LINEAR;
+  samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.anisotropyEnable        = VK_TRUE;
+  samplerInfo.maxAnisotropy           = 16;
+  samplerInfo.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.compareEnable           = VK_FALSE;
+  samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  samplerInfo.mipLodBias              = 0.0f;
+  samplerInfo.minLod                  = 0.0f;
+  samplerInfo.maxLod                  = 0.0f;
+
+  if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create texture sampler!");
+  }
+}
+
+/**
+ * @brief
+ */
+void vkTutorialApp::create_texture_image_view()
+{
+  textureImageView = create_image_view(textureImage, VK_FORMAT_R8G8B8A8_UNORM);
+}
+
+/**
+ * @brief
+ * @param image
+ * @param format
+ * @return
+ */
+VkImageView vkTutorialApp::create_image_view(VkImage image, VkFormat format)
+{
+  VkImageViewCreateInfo viewInfo           = {};
+  viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  viewInfo.image                           = image;
+  viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format                          = format;
+  viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel   = 0;
+  viewInfo.subresourceRange.levelCount     = 1;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount     = 1;
+
+  VkImageView imageView;
+  if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create texture image view!");
+  }
+  return imageView;
 }
 
 /**
@@ -1207,7 +1281,7 @@ void vkTutorialApp::transition_image_layout(VkImage       image,
   barrier.image                           = image;
   barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
   barrier.subresourceRange.baseMipLevel   = 0;
-  barrier.subresourceRange.levelCount     = 0;
+  barrier.subresourceRange.levelCount     = 1;
   barrier.subresourceRange.baseArrayLayer = 0;
   barrier.subresourceRange.layerCount     = 1;
 
@@ -1256,7 +1330,7 @@ void vkTutorialApp::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_
   region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
   region.imageSubresource.mipLevel       = 0;
   region.imageSubresource.baseArrayLayer = 0;
-  region.imageSubresource.layerCount     = 0;
+  region.imageSubresource.layerCount     = 1;
 
   region.imageOffset = {0, 0, 0};
   region.imageExtent = {width, height, 1};
@@ -1849,25 +1923,8 @@ void vkTutorialApp::create_image_views()
 
   for (size_t i = 0; i < swapchainImages.size(); i++)
   {
-    VkImageViewCreateInfo createInfo           = {};
-    createInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    createInfo.image                           = swapchainImages[i];
-    createInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    createInfo.format                          = swapchainImageFormat;
-    createInfo.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    createInfo.subresourceRange.baseMipLevel   = 0;
-    createInfo.subresourceRange.levelCount     = 1;
-    createInfo.subresourceRange.baseArrayLayer = 0;
-    createInfo.subresourceRange.layerCount     = 1;
-    if (vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS)
-    {
-      throw std::runtime_error("Failed to create image views!");
-    }
-    canRender = true;
+    swapchainImageViews[i] = create_image_view(swapchainImages[i], swapchainImageFormat);
+    canRender              = true;
   }
 }
 
