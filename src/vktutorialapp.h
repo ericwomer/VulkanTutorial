@@ -26,6 +26,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 // #include <SDL.h>
 
 #include "skeleton/skeleton.h"
@@ -183,6 +186,9 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   std::vector<VkDeviceMemory>  uniformBuffersMemory;
   VkDescriptorPool             descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
+  VkImage                      textureImage;
+  VkDeviceMemory               textureImageMemory;
+  VkImageView                  textureImageView;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -235,7 +241,19 @@ class vkTutorialApp : public Rake::Base::Skeleton {
                                          VkMemoryPropertyFlags properties,
                                          VkBuffer&             buffer,
                                          VkDeviceMemory&       bufferMemory);
+  void                     create_image(uint32_t              width,
+                                        uint32_t              height,
+                                        VkFormat              format,
+                                        VkImageTiling         tiling,
+                                        VkImageUsageFlags     usage,
+                                        VkMemoryPropertyFlags properties,
+                                        VkImage&              image,
+                                        VkDeviceMemory&       imageMemory);
   void                     copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+  VkCommandBuffer          begin_single_time_commands();
+  void                     end_single_time_commands(VkCommandBuffer commandBuffer);
+  void transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+  void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
   VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
   VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
@@ -255,6 +273,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_command_pool();
   void create_command_buffers();
   void create_sync_objects();
+  void create_texture_image();
+  void create_texture_image_view();
   void create_vertex_buffer();
   void create_index_buffer();
   void create_uniform_buffers();

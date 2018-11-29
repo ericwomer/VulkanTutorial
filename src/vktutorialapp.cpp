@@ -184,13 +184,29 @@ void vkTutorialApp::init_window()
   uint32_t value_list[] = {screen->white_pixel,
                            XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_STRUCTURE_NOTIFY};
 
-  xcb_create_window(connection, XCB_COPY_FROM_PARENT, handle, screen->root, 29, 29, this->width, this->height, 0,
-                    XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
+  xcb_create_window(connection,
+                    XCB_COPY_FROM_PARENT,
+                    handle,
+                    screen->root,
+                    29,
+                    29,
+                    this->width,
+                    this->height,
+                    0,
+                    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+                    screen->root_visual,
+                    XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
                     value_list);
 
   xcb_flush(connection);
-  xcb_change_property(connection, XCB_PROP_MODE_REPLACE, handle, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
-                      strlen(app_name.c_str()), app_name.c_str());
+  xcb_change_property(connection,
+                      XCB_PROP_MODE_REPLACE,
+                      handle,
+                      XCB_ATOM_WM_NAME,
+                      XCB_ATOM_STRING,
+                      8,
+                      strlen(app_name.c_str()),
+                      app_name.c_str());
 }
 
 /**
@@ -214,7 +230,13 @@ bool vkTutorialApp::rendering_loop()
   xcb_intern_atom_reply_t* protocols_reply  = xcb_intern_atom_reply(connection, protocols_cookie, 0);
   xcb_intern_atom_cookie_t delete_cookie    = xcb_intern_atom(connection, 0, 16, "WM_DELETE_WINDOW");
   xcb_intern_atom_reply_t* delete_reply     = xcb_intern_atom_reply(connection, delete_cookie, 0);
-  xcb_change_property(connection, XCB_PROP_MODE_REPLACE, handle, (*protocols_reply).atom, 4, 32, 1,
+  xcb_change_property(connection,
+                      XCB_PROP_MODE_REPLACE,
+                      handle,
+                      (*protocols_reply).atom,
+                      4,
+                      32,
+                      1,
                       &(*delete_reply).atom);
   free(protocols_reply);
 
@@ -309,6 +331,9 @@ void vkTutorialApp::cleanup()
   }
 
   cleanup_swapchain();
+
+  vkDestroyImage(device, textureImage, nullptr);
+  vkFreeMemory(device, textureImageMemory, nullptr);
 
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
@@ -815,8 +840,11 @@ void vkTutorialApp::get_device_queues()
  */
 void vkTutorialApp::create_surface()
 {
-  VkXcbSurfaceCreateInfoKHR surface_create_info = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR, nullptr, 0,
-                                                   connection, handle};
+  VkXcbSurfaceCreateInfoKHR surface_create_info = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+                                                   nullptr,
+                                                   0,
+                                                   connection,
+                                                   handle};
 
   if (vkCreateXcbSurfaceKHR(instance, &surface_create_info, nullptr, &surface) == VK_SUCCESS)
   {
@@ -848,6 +876,8 @@ void vkTutorialApp::init_vulkan()
   create_graphics_pipeline();
   create_frame_buffer();
   create_command_pool();
+  create_texture_image();
+  create_texture_image_view();
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -857,6 +887,122 @@ void vkTutorialApp::init_vulkan()
   create_sync_objects();
 }
 
+/**
+ * @brief
+ */
+void vkTutorialApp::create_texture_image()
+{
+  int          texWidth, texHeight, texChannels;
+  stbi_uc*     pixels = stbi_load("../data/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+  VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+  if (!pixels)
+  {
+    throw std::runtime_error("Failed to load texture image!");
+  }
+
+  VkBuffer       stagingBuffer;
+  VkDeviceMemory stagingBufferMemory;
+
+  create_buffer(imageSize,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                stagingBuffer,
+                stagingBufferMemory);
+
+  void* data;
+  vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+  memcpy(data, pixels, static_cast<size_t>(imageSize));
+  vkUnmapMemory(device, stagingBufferMemory);
+
+  stbi_image_free(pixels);
+
+  create_image(texWidth,
+               texHeight,
+               VK_FORMAT_R8G8B8A8_UNORM,
+               VK_IMAGE_TILING_OPTIMAL,
+               VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               textureImage,
+               textureImageMemory);
+
+  transition_image_layout(textureImage,
+                          VK_FORMAT_R8G8B8A8_UNORM,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+  copy_buffer_to_image(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+  transition_image_layout(textureImage,
+                          VK_FORMAT_R8G8B8A8_UNORM,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  vkDestroyBuffer(device, stagingBuffer, nullptr);
+  vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+/**
+ * @brief
+ * @param width
+ * @param height
+ * @param format
+ * @param tiling
+ * @param usage
+ * @param properties
+ * @param image
+ * @param imageMemory
+ */
+void vkTutorialApp::create_image(uint32_t              width,
+                                 uint32_t              height,
+                                 VkFormat              format,
+                                 VkImageTiling         tiling,
+                                 VkImageUsageFlags     usage,
+                                 VkMemoryPropertyFlags properties,
+                                 VkImage&              image,
+                                 VkDeviceMemory&       imageMemory)
+{
+  VkImageCreateInfo imageInfo = {};
+  imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType         = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width      = width;
+  imageInfo.extent.height     = height;
+  imageInfo.extent.depth      = 1;
+  imageInfo.mipLevels         = 1;
+  imageInfo.arrayLayers       = 1;
+  imageInfo.format            = format;
+  imageInfo.tiling            = tiling;
+  imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage             = usage;
+  imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.flags             = 0;  // Optional
+  imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to create image");
+  }
+
+  VkMemoryRequirements memRequirements;
+  vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+  VkMemoryAllocateInfo allocInfo = {};
+  allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize       = memRequirements.size;
+  allocInfo.memoryTypeIndex      = find_memory_type(memRequirements.memoryTypeBits, properties);
+
+  if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+  {
+    throw std::runtime_error("Failed to allocate image memory!");
+  }
+
+  vkBindImageMemory(device, image, imageMemory, 0);
+}
+
+/**
+ * @brief
+ */
 void vkTutorialApp::create_descriptor_sets()
 {
   std::vector<VkDescriptorSetLayout> layouts(swapchainImages.size(), descriptorSetLayout);
@@ -895,6 +1041,9 @@ void vkTutorialApp::create_descriptor_sets()
   }
 }
 
+/**
+ * @brief
+ */
 void vkTutorialApp::create_descriptor_pool()
 {
   VkDescriptorPoolSize poolSize = {};
@@ -913,6 +1062,9 @@ void vkTutorialApp::create_descriptor_pool()
   }
 }
 
+/**
+ * @brief
+ */
 void vkTutorialApp::create_uniform_buffers()
 {
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -922,12 +1074,18 @@ void vkTutorialApp::create_uniform_buffers()
 
   for (size_t i = 0; i < swapchainImages.size(); i++)
   {
-    create_buffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
+    create_buffer(bufferSize,
+                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  uniformBuffers[i],
                   uniformBuffersMemory[i]);
   }
 }
 
+/**
+ * @brief
+ * @return
+ */
 bool vkTutorialApp::recreate_swap_chain()
 {
   if (device != VK_NULL_HANDLE)
@@ -950,6 +1108,12 @@ bool vkTutorialApp::recreate_swap_chain()
   return false;
 }
 
+/**
+ * @brief
+ * @param typeFilter
+ * @param properties
+ * @return
+ */
 uint32_t vkTutorialApp::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
   VkPhysicalDeviceMemoryProperties memProperties;
@@ -965,13 +1129,7 @@ uint32_t vkTutorialApp::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFl
   throw std::runtime_error("Failed to suitable memory type!");
 }
 
-/**
- * @brief
- * @param srcBuffer
- * @param dstBuffer
- * @param size
- */
-void vkTutorialApp::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+VkCommandBuffer vkTutorialApp::begin_single_time_commands()
 {
   VkCommandBufferAllocateInfo allocInfo = {};
   allocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -987,12 +1145,11 @@ void vkTutorialApp::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
   beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-  VkBufferCopy copyRegion = {};
-  copyRegion.srcOffset    = 0;  // Optional
-  copyRegion.dstOffset    = 0;  // Optional
-  copyRegion.size         = size;
+  return commandBuffer;
+}
 
-  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+void vkTutorialApp::end_single_time_commands(VkCommandBuffer commandBuffer)
+{
   vkEndCommandBuffer(commandBuffer);
 
   VkSubmitInfo submitInfo       = {};
@@ -1008,6 +1165,109 @@ void vkTutorialApp::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
 
 /**
  * @brief
+ * @param srcBuffer
+ * @param dstBuffer
+ * @param size
+ */
+void vkTutorialApp::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+  VkCommandBuffer commandBuffer = begin_single_time_commands();
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset    = 0;  // Optional
+  copyRegion.dstOffset    = 0;  // Optional
+  copyRegion.size         = size;
+
+  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+  end_single_time_commands(commandBuffer);
+}
+
+/**
+ * @brief
+ * @param image
+ * @param format
+ * @param oldLayout
+ * @param newLayout
+ */
+void vkTutorialApp::transition_image_layout(VkImage       image,
+                                            VkFormat      format,
+                                            VkImageLayout oldLayout,
+                                            VkImageLayout newLayout)
+{
+  VkCommandBuffer      commandBuffer = begin_single_time_commands();
+  VkPipelineStageFlags sourceStage;
+  VkPipelineStageFlags destinationStage;
+
+  VkImageMemoryBarrier barrier            = {};
+  barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.oldLayout                       = oldLayout;
+  barrier.newLayout                       = newLayout;
+  barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image                           = image;
+  barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel   = 0;
+  barrier.subresourceRange.levelCount     = 0;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount     = 1;
+
+  if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+  {
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    sourceStage      = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  }
+  else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+  {
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    sourceStage      = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  }
+  else
+  {
+    throw std::runtime_error("Unsupported layout transistion!");
+  }
+
+  vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+  end_single_time_commands(commandBuffer);
+}
+
+/**
+ * @brief
+ * @param buffer
+ * @param image
+ * @param width
+ * @param height
+ */
+void vkTutorialApp::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+{
+  VkCommandBuffer commandBuffer = begin_single_time_commands();
+
+  VkBufferImageCopy region = {};
+  region.bufferOffset      = 0;
+  region.bufferRowLength   = 0;
+  region.bufferImageHeight = 0;
+
+  region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+  region.imageSubresource.mipLevel       = 0;
+  region.imageSubresource.baseArrayLayer = 0;
+  region.imageSubresource.layerCount     = 0;
+
+  region.imageOffset = {0, 0, 0};
+  region.imageExtent = {width, height, 1};
+
+  vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+  end_single_time_commands(commandBuffer);
+}
+
+/**
+ * @brief
  */
 void vkTutorialApp::create_vertex_buffer()
 {
@@ -1016,8 +1276,10 @@ void vkTutorialApp::create_vertex_buffer()
   VkBuffer       stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
 
-  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+  create_buffer(bufferSize,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                stagingBuffer,
                 stagingBufferMemory);
 
   void* data;
@@ -1025,8 +1287,11 @@ void vkTutorialApp::create_vertex_buffer()
   memcpy(data, verticies.data(), (size_t)bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
 
-  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+  create_buffer(bufferSize,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                vertexBuffer,
+                vertexBufferMemory);
 
   copy_buffer(stagingBuffer, vertexBuffer, bufferSize);
   vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -1043,8 +1308,10 @@ void vkTutorialApp::create_index_buffer()
   VkBuffer       stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
 
-  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+  create_buffer(bufferSize,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                stagingBuffer,
                 stagingBufferMemory);
 
   void* data;
@@ -1052,8 +1319,11 @@ void vkTutorialApp::create_index_buffer()
   memcpy(data, indices.data(), (size_t)bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
 
-  create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+  create_buffer(bufferSize,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                indexBuffer,
+                indexBufferMemory);
 
   copy_buffer(stagingBuffer, indexBuffer, bufferSize);
 
@@ -1091,8 +1361,12 @@ bool vkTutorialApp::draw()  // Eric: Draw is draw frame.
   vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
   uint32_t imageIndex;
-  VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
-                                          imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
+  VkResult result = vkAcquireNextImageKHR(device,
+                                          swapchain,
+                                          std::numeric_limits<uint64_t>::max(),
+                                          imageAvailableSemaphore[currentFrame],
+                                          VK_NULL_HANDLE,
+                                          &imageIndex);
 
   switch (result)
   {
@@ -1275,8 +1549,14 @@ void vkTutorialApp::create_command_buffers()
     vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-                            &descriptorSets[i], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffers[i],
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipelineLayout,
+                            0,
+                            1,
+                            &descriptorSets[i],
+                            0,
+                            nullptr);
     vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -1395,8 +1675,8 @@ void vkTutorialApp::create_desctiptor_set_layout()
 */
 void vkTutorialApp::create_graphics_pipeline()
 {
-  auto vertShaderCode = read_file("triangle_vert.spv");
-  auto fragShaderCode = read_file("triangle_frag.spv");
+  auto vertShaderCode = read_file("triangle.vert.spv");
+  auto fragShaderCode = read_file("triangle.frag.spv");
 
   VkShaderModule vertShaderModule;
   VkShaderModule fragShaderModule;
@@ -1782,11 +2062,11 @@ bool vkTutorialApp::load_instance_level_entry_points()
 }
 
 /**
-         * @brief
-         *
-         * @return true
-         * @return false
-         */
+ * @brief
+ *
+ * @return true
+ * @return false
+ */
 bool vkTutorialApp::load_device_entry_level_points()
 {
 #define VK_DEVICE_LEVEL_FUNCTION(fun)                                                    \
@@ -1801,11 +2081,11 @@ bool vkTutorialApp::load_device_entry_level_points()
 }
 
 /**
-         * @brief
-         *
-         * @param filename
-         * @return std::vector<char>
-         */
+ * @brief
+ *
+ * @param filename
+ * @return std::vector<char>
+ */
 std::vector<char> vkTutorialApp::read_file(const std::string& filename)
 {
   std::ifstream file(filename, std::ios::ate | std::ios::binary);

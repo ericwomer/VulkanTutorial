@@ -44,7 +44,7 @@ vktutorial_include_directories = [
     include_directories('include/'),
     include_directories('thirdparty/include/'),
     include_directories('/usr/lib/llvm-8/include/c++/v1/'),
-    include_directories('/mnt/store/opt/VulkanSDK/1.1.85.0/x86_64/include/')
+    include_directories('/usr/include/')
     ]
 
 vktutorial_cflags = [
@@ -83,4 +83,6 @@ install_data('LICENSE', install_dir: join_paths('share/doc', executable_name))
 if get_option('build-docs')
     subdir('doc')
 endif
+
+subdir('data/shaders/')
 

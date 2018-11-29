@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="vkTutorial" Version="10.0.0" InternalType="">
-  <VirtualDirectory Name="doc">
-    <File Name="doc/meson.build"/>
-  </VirtualDirectory>
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00010001N0005Debug000000000000]]>
     </Plugin>
   </Plugins>
+  <VirtualDirectory Name="data">
+    <VirtualDirectory Name="shaders">
+      <File Name="data/shaders/meson.build"/>
+      <File Name="data/shaders/triangle.vert"/>
+      <File Name="data/shaders/triangle.frag"/>
+    </VirtualDirectory>
+  </VirtualDirectory>
+  <VirtualDirectory Name="tools"/>
+  <VirtualDirectory Name="doc">
+    <File Name="doc/meson.build"/>
+  </VirtualDirectory>
   <VirtualDirectory Name="src">
     <File Name="src/vktutorialapp.h"/>
     <File Name="src/main.cpp"/>
@@ -19,10 +27,7 @@
       <File Name="src/vulkan/VulkanCommon.cpp"/>
       <File Name="src/vulkan/VulkanCommon.h"/>
     </VirtualDirectory>
-    <VirtualDirectory Name="shaders">
-      <File Name="src/shaders/triangle.vert"/>
-      <File Name="src/shaders/triangle.frag"/>
-    </VirtualDirectory>
+    <VirtualDirectory Name="shaders"/>
     <VirtualDirectory Name="skeleton">
       <File Name="src/skeleton/skeleton.h"/>
     </VirtualDirectory>
@@ -33,17 +38,16 @@
   <Reconciliation>
     <Regexes/>
     <Excludepaths>
-      <Path>doc/</Path>
-      <Path>docs/</Path>
-      <Path>dump/</Path>
-      <Path>test/</Path>
-      <Path>nbproject/</Path>
-      <Path>dist/</Path>
       <Path>build/</Path>
+      <Path>dist/</Path>
+      <Path>nbproject/</Path>
+      <Path>test/</Path>
+      <Path>dump/</Path>
+      <Path>docs/</Path>
     </Excludepaths>
     <Ignorefiles/>
     <Extensions>
-      <![CDATA[*.cpp;*.c;*.h;*.hpp;*.xrc;*.wxcp;*.fbp]]>
+      <![CDATA[*.cpp;*.c;*.h;*.hpp;*.xrc;*.wxcp;*.fbp;*.build;*.vert;*.frag]]>
     </Extensions>
     <Topleveldir>/mnt/store/vkTutorial</Topleveldir>
   </Reconciliation>
