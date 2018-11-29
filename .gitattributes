@@ -1,0 +1,3 @@
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.vert filter=lfs diff=lfs merge=lfs -text
+*.frag filter=lfs diff=lfs merge=lfs -text
