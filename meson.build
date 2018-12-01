@@ -53,10 +53,10 @@ vktutorial_cflags = [
     '-DVK_USE_PLATFORM_XCB_KHR'
     ]
 
-if get_option('debug') == true or get_option('build_type') == 'debug'
+if get_option('debug') == true or get_option('buildtype') == 'debug'
   vktutorial_cflags += ['-g', '-Og']
 else
-  vktutorial_cflags += ['-O3']
+  vktutorial_cflags += ['-O2']
 endif
 
 vktutorial_ldflags = [

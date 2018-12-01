@@ -23,6 +23,7 @@
 #include <vulkan/vulkan.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -48,7 +49,7 @@ struct UniformBufferObject {
 };
 
 struct Vertex {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 texCoord;
 
@@ -68,7 +69,7 @@ struct Vertex {
 
     attributesDescription[0].binding  = 0;
     attributesDescription[0].location = 0;
-    attributesDescription[0].format   = VK_FORMAT_R32G32_SFLOAT;
+    attributesDescription[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
     attributesDescription[0].offset   = offsetof(Vertex, pos);
 
     attributesDescription[1].binding  = 0;
@@ -85,12 +86,27 @@ struct Vertex {
   }
 };
 
-const std::vector<Vertex> verticies = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-                                       {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-                                       {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-                                       {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+// clang-format off
+const std::vector<Vertex> verticies = {
+  {{-0.5f, -0.5f,  0.0f}, { 1.0f, 0.0f, 0.0f}, { 0.0f, 0.0f}},
+  {{ 0.5f, -0.5f,  0.0f}, { 0.0f, 1.0f, 0.0f}, { 1.0f, 0.0f}},
+  {{ 0.5f,  0.5f,  0.0f}, { 0.0f, 0.0f, 1.0f}, { 1.0f, 1.0f}},
+  {{-0.5f,  0.5f,  0.0f}, { 1.0f, 1.0f, 1.0f}, { 0.0f, 1.0f}},
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+  {{-0.5f, -0.5f, -0.5f}, { 1.0f, 0.0f, 0.0f}, { 0.0f, 0.0f}},
+  {{ 0.5f, -0.5f, -0.5f}, { 0.0f, 1.0f, 0.0f}, { 1.0f, 0.0f}},
+  {{ 0.5f,  0.5f, -0.5f}, { 0.0f, 0.0f, 1.0f}, { 1.0f, 1.0f}},
+  {{-0.5f,  0.5f, -0.5f}, { 1.0f, 1.0f, 1.0f}, { 0.0f, 1.0f}}
+
+};
+
+
+const std::vector<uint16_t> indices = {
+  0, 1, 2, 2, 3, 0,
+  4, 5, 6, 6, 7, 4
+};
+
+// clang-format on
 
 /**
  * @brief Static list of application validation layers for Vulkan debugging
@@ -123,13 +139,6 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
                                        VkDebugUtilsMessengerEXT     callback,
                                        const VkAllocationCallbacks* pAllocator);
 
-/*
- *     : connection()
-    , handle()
-    , canRender(false)
-    , width(640)
-    , height(480)
- */
 class vkTutorialApp : public Rake::Base::Skeleton {
   public:
   // Core Application Public Interface Methods
@@ -193,10 +202,15 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   std::vector<VkDeviceMemory>  uniformBuffersMemory;
   VkDescriptorPool             descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
-  VkImage                      textureImage;
-  VkDeviceMemory               textureImageMemory;
-  VkImageView                  textureImageView;
-  VkSampler                    textureSampler;
+
+  VkImage        textureImage;
+  VkDeviceMemory textureImageMemory;
+  VkImageView    textureImageView;
+  VkSampler      textureSampler;
+
+  VkImage        depthImage;
+  VkDeviceMemory depthImageMemory;
+  VkImageView    depthImageView;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -244,25 +258,31 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   bool                     is_device_suitable(VkPhysicalDevice device);
   void                     get_device_queues();
   uint32_t                 find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-  void                     create_buffer(VkDeviceSize          size,
-                                         VkBufferUsageFlags    usage,
-                                         VkMemoryPropertyFlags properties,
-                                         VkBuffer&             buffer,
-                                         VkDeviceMemory&       bufferMemory);
-  void                     create_image(uint32_t              width,
-                                        uint32_t              height,
-                                        VkFormat              format,
-                                        VkImageTiling         tiling,
-                                        VkImageUsageFlags     usage,
-                                        VkMemoryPropertyFlags properties,
-                                        VkImage&              image,
-                                        VkDeviceMemory&       imageMemory);
-  void                     copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-  VkCommandBuffer          begin_single_time_commands();
-  void                     end_single_time_commands(VkCommandBuffer commandBuffer);
+  VkFormat                 find_supported_format(const std::vector<VkFormat>& candidates,
+                                                 VkImageTiling                tiling,
+                                                 VkFormatFeatureFlags         features);
+  VkFormat                 find_depth_format();
+  bool                     has_stencil_component(VkFormat format);
+
+  void            create_buffer(VkDeviceSize          size,
+                                VkBufferUsageFlags    usage,
+                                VkMemoryPropertyFlags properties,
+                                VkBuffer&             buffer,
+                                VkDeviceMemory&       bufferMemory);
+  void            create_image(uint32_t              width,
+                               uint32_t              height,
+                               VkFormat              format,
+                               VkImageTiling         tiling,
+                               VkImageUsageFlags     usage,
+                               VkMemoryPropertyFlags properties,
+                               VkImage&              image,
+                               VkDeviceMemory&       imageMemory);
+  void            copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+  VkCommandBuffer begin_single_time_commands();
+  void            end_single_time_commands(VkCommandBuffer commandBuffer);
   void        transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
   void        copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-  VkImageView create_image_view(VkImage image, VkFormat format);
+  VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
   VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
   VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
@@ -280,6 +300,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_graphics_pipeline();
   void create_frame_buffer();
   void create_command_pool();
+  void create_depth_resources();
   void create_command_buffers();
   void create_sync_objects();
   void create_texture_image();

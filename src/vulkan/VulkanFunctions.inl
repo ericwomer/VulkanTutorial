@@ -128,5 +128,6 @@ VK_DEVICE_LEVEL_FUNCTION(vkCreateDescriptorSetLayout)
 VK_DEVICE_LEVEL_FUNCTION(vkUpdateDescriptorSets)
 VK_DEVICE_LEVEL_FUNCTION(vkCmdBindDescriptorSets)
 VK_DEVICE_LEVEL_FUNCTION(vkCreateImage)
+VK_DEVICE_LEVEL_FUNCTION(vkGetPhysicalDeviceFormatProperties)
 
 #undef VK_DEVICE_LEVEL_FUNCTION
