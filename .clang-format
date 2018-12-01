@@ -9,13 +9,13 @@ BreakBeforeBraces: Custom
 BraceWrapping:
   AfterEnum: true
   AfterClass: false
-  AfterControlStatement: true
+  AfterControlStatement: false
   AfterFunction: true
   AfterNamespace: false
   AfterStruct: false
   AfterUnion: false
   BeforeCatch: false
-  BeforeElse: true
+  BeforeElse: false
   SplitEmptyFunction: true
   SplitEmptyNamespace: true
 
