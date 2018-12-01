@@ -580,11 +580,10 @@ bool vkTutorialApp::check_device_extension_support(VkPhysicalDevice device)
 }
 
 /**
-* @brief
-*
-* @param device
-* @return rake::vlkn::vkTutorialApp::SwapChainSupportDetails
-*/
+ * @brief
+ * @param device
+ * @return
+ */
 vkTutorialApp::SwapChainSupportDetails vkTutorialApp::query_swap_chain_support(VkPhysicalDevice device)
 {
   SwapChainSupportDetails details;
