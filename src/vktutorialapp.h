@@ -205,6 +205,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkDescriptorPool             descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
 
+  uint32_t       mipLevels;
   VkImage        textureImage;
   VkDeviceMemory textureImageMemory;
   VkImageView    textureImageView;
@@ -268,13 +269,15 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkFormat                 find_depth_format();
   bool                     has_stencil_component(VkFormat format);
 
-  void            create_buffer(VkDeviceSize          size,
-                                VkBufferUsageFlags    usage,
-                                VkMemoryPropertyFlags properties,
-                                VkBuffer&             buffer,
-                                VkDeviceMemory&       bufferMemory);
+  void create_buffer(VkDeviceSize          size,
+                     VkBufferUsageFlags    usage,
+                     VkMemoryPropertyFlags properties,
+                     VkBuffer&             buffer,
+                     VkDeviceMemory&       bufferMemory);
+
   void            create_image(uint32_t              width,
                                uint32_t              height,
+                               uint32_t              mipLevels,
                                VkFormat              format,
                                VkImageTiling         tiling,
                                VkImageUsageFlags     usage,
@@ -284,9 +287,14 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void            copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
   VkCommandBuffer begin_single_time_commands();
   void            end_single_time_commands(VkCommandBuffer commandBuffer);
-  void        transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-  void        copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-  VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+  void            transition_image_layout(VkImage       image,
+                                          VkFormat      format,
+                                          VkImageLayout oldLayout,
+                                          VkImageLayout newLayout,
+                                          uint32_t      mipLevels);
+  void            copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+  VkImageView     create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+  void generate_mipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
   VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
   VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);
