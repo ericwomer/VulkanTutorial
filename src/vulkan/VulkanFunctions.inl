@@ -85,6 +85,7 @@ VK_INSTANCE_LEVEL_FUNCTION(vkCmdPipelineBarrier)
 VK_INSTANCE_LEVEL_FUNCTION(vkCmdCopyBufferToImage)
 VK_INSTANCE_LEVEL_FUNCTION(vkDestroySampler)
 VK_INSTANCE_LEVEL_FUNCTION(vkCreateSampler)
+VK_INSTANCE_LEVEL_FUNCTION(vkGetPhysicalDeviceFormatProperties)
 
 #undef VK_INSTANCE_LEVEL_FUNCTION
 
@@ -128,6 +129,5 @@ VK_DEVICE_LEVEL_FUNCTION(vkCreateDescriptorSetLayout)
 VK_DEVICE_LEVEL_FUNCTION(vkUpdateDescriptorSets)
 VK_DEVICE_LEVEL_FUNCTION(vkCmdBindDescriptorSets)
 VK_DEVICE_LEVEL_FUNCTION(vkCreateImage)
-VK_DEVICE_LEVEL_FUNCTION(vkGetPhysicalDeviceFormatProperties)
 
 #undef VK_DEVICE_LEVEL_FUNCTION
