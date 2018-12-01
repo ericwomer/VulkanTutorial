@@ -50,9 +50,14 @@ vktutorial_include_directories = [
 vktutorial_cflags = [
     '-stdlib=libc++',
     '-DVK_NO_PROTOTYPES',
-    '-DVK_USE_PLATFORM_XCB_KHR',
-    '-g'
+    '-DVK_USE_PLATFORM_XCB_KHR'
     ]
+
+if get_option('debug') == true or get_option('build_type') == 'debug'
+  vktutorial_cflags += ['-g', '-Og']
+else
+  vktutorial_cflags += ['-O3']
+endif
 
 vktutorial_ldflags = [
     '-lm',
