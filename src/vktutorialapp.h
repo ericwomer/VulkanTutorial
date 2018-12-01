@@ -41,9 +41,6 @@
 
 namespace Rake { namespace Application {
 
-constexpr int global_width  = 640;
-constexpr int global_height = 480;
-
 struct UniformBufferObject {
   glm::mat4 model;
   glm::mat4 view;
@@ -53,6 +50,7 @@ struct UniformBufferObject {
 struct Vertex {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 texCoord;
 
   static VkVertexInputBindingDescription getBindingDescription()
   {
@@ -64,9 +62,9 @@ struct Vertex {
     return bindingDescription;
   }
 
-  static std::array<VkVertexInputAttributeDescription, 2> getAttributesDescription()
+  static std::array<VkVertexInputAttributeDescription, 3> getAttributesDescription()
   {
-    std::array<VkVertexInputAttributeDescription, 2> attributesDescription = {};
+    std::array<VkVertexInputAttributeDescription, 3> attributesDescription = {};
 
     attributesDescription[0].binding  = 0;
     attributesDescription[0].location = 0;
@@ -78,14 +76,19 @@ struct Vertex {
     attributesDescription[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
     attributesDescription[1].offset   = offsetof(Vertex, color);
 
+    attributesDescription[2].binding  = 0;
+    attributesDescription[2].location = 2;
+    attributesDescription[2].format   = VK_FORMAT_R32G32_SFLOAT;
+    attributesDescription[2].offset   = offsetof(Vertex, texCoord);
+
     return attributesDescription;
   }
 };
 
-const std::vector<Vertex> verticies = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                       {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-                                       {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-                                       {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<Vertex> verticies = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+                                       {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+                                       {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+                                       {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
 
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
@@ -120,6 +123,13 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
                                        VkDebugUtilsMessengerEXT     callback,
                                        const VkAllocationCallbacks* pAllocator);
 
+/*
+ *     : connection()
+    , handle()
+    , canRender(false)
+    , width(640)
+    , height(480)
+ */
 class vkTutorialApp : public Rake::Base::Skeleton {
   public:
   // Core Application Public Interface Methods
@@ -150,8 +160,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   std::vector<std::string> actions;
 
   // Vulkan Private Member Variables
-  uint32_t width  = global_width;
-  uint32_t height = global_height;
+  uint32_t width  = 640;
+  uint32_t height = 480;
 
   const int MAX_FRAMES_IN_FLIGHT = 2;
   size_t    currentFrame         = 0;
@@ -194,9 +204,9 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   bool                     framebufferResized = false;
 
   void*             VulkanLibrary = nullptr;
-  xcb_connection_t* connection;
-  xcb_window_t      handle;
-  bool              canRender;
+  xcb_connection_t* connection    = nullptr;
+  xcb_window_t      handle        = 0;
+  bool              canRender     = false;
 
   // SDL_Window* window;
   void*    window;                    // Eric: void for now until I get the windowing part up and runnint
@@ -266,7 +276,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void create_swap_chain();
   void create_image_views();
   void create_render_pass();
-  void create_desctiptor_set_layout();
+  void create_descriptor_set_layout();
   void create_graphics_pipeline();
   void create_frame_buffer();
   void create_command_pool();
