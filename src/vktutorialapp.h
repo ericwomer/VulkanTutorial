@@ -27,6 +27,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 // #include <SDL.h>
 
 #include "skeleton/skeleton.h"
@@ -39,6 +42,9 @@
 #include <xcb/xcb.h>
 #include <dlfcn.h>
 #endif
+
+// clang-format off
+// clang-format on
 
 namespace Rake { namespace Application {
 
@@ -84,29 +90,25 @@ struct Vertex {
 
     return attributesDescription;
   }
+
+  bool operator==(const Vertex& other) const
+  {
+    return pos == other.pos && color == other.color && texCoord == other.texCoord;
+  }
 };
 
-// clang-format off
-const std::vector<Vertex> verticies = {
-  {{-0.5f, -0.5f,  0.0f}, { 1.0f, 0.0f, 0.0f}, { 0.0f, 0.0f}},
-  {{ 0.5f, -0.5f,  0.0f}, { 0.0f, 1.0f, 0.0f}, { 1.0f, 0.0f}},
-  {{ 0.5f,  0.5f,  0.0f}, { 0.0f, 0.0f, 1.0f}, { 1.0f, 1.0f}},
-  {{-0.5f,  0.5f,  0.0f}, { 1.0f, 1.0f, 1.0f}, { 0.0f, 1.0f}},
+struct Model {
+  int width;   // = 800;
+  int height;  // = 600;
 
-  {{-0.5f, -0.5f, -0.5f}, { 1.0f, 0.0f, 0.0f}, { 0.0f, 0.0f}},
-  {{ 0.5f, -0.5f, -0.5f}, { 0.0f, 1.0f, 0.0f}, { 1.0f, 0.0f}},
-  {{ 0.5f,  0.5f, -0.5f}, { 0.0f, 0.0f, 1.0f}, { 1.0f, 1.0f}},
-  {{-0.5f,  0.5f, -0.5f}, { 1.0f, 1.0f, 1.0f}, { 0.0f, 1.0f}}
+  std::string modelPath;    // = "data/models/chalet.obj"
+  std::string texturePath;  // = "data/textures/chalet.jpg"
 
+  std::vector<Vertex>   verticies;
+  std::vector<uint32_t> indices;
+  VkBuffer              vertexBuffer;
+  VkDeviceMemory        vertexBufferMemory;
 };
-
-
-const std::vector<uint16_t> indices = {
-  0, 1, 2, 2, 3, 0,
-  4, 5, 6, 6, 7, 4
-};
-
-// clang-format on
 
 /**
  * @brief Static list of application validation layers for Vulkan debugging
@@ -242,6 +244,8 @@ class vkTutorialApp : public Rake::Base::Skeleton {
 
   QueueFamilyIndices familyIndicies;
 
+  Model chalet;
+
   // Vulkan Private Interface Methods.
   void init_window();
   void init_vulkan();
@@ -333,6 +337,9 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   bool load_global_entry_points();
   bool load_instance_level_entry_points();
   bool load_device_entry_level_points();
+
+  // Misc Private Methods
+  void load_model();
 };
 }}      // namespace Rake::Application
 #endif  // SKELETONAPP_H

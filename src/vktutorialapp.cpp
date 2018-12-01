@@ -2,6 +2,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 #include <thread>
 #include <chrono>
@@ -9,10 +10,24 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
 #include "vktutorialapp.h"
 #include "config.h"
 
 #include "vulkan/VulkanFunctions.h"
+
+namespace std {
+template <>
+struct hash<Rake::Application::Vertex> {
+  size_t operator()(Rake::Application::Vertex const& vertex) const
+  {
+    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+           (hash<glm::vec2>()(vertex.texCoord) << 1);
+  }
+};
+}  // namespace std
 
 namespace Rake { namespace Application {
 
@@ -66,6 +81,11 @@ vkTutorialApp::vkTutorialApp()
   name(project_name);
   app_description.push_back(std::string("vkTutorialApp \n"));
   app_description.push_back(std::string("** nothing else follows ** \n"));
+
+  chalet.width       = 800;
+  chalet.height      = 600;
+  chalet.modelPath   = "data/models/chalet.obj";
+  chalet.texturePath = "data/textures/chalet.jpg";
 }
 
 /**
@@ -807,6 +827,7 @@ void vkTutorialApp::init_vulkan()
   create_texture_image();
   create_texture_image_view();
   create_texture_sampler();
+  load_model();
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -814,6 +835,42 @@ void vkTutorialApp::init_vulkan()
   create_descriptor_sets();
   create_command_buffers();
   create_sync_objects();
+}
+
+void vkTutorialApp::load_model()
+{
+  tinyobj::attrib_t                attrib;
+  std::vector<tinyobj::shape_t>    shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string                      warn, err;
+
+  if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, chalet.modelPath.c_str())) {
+    throw std::runtime_error(warn + err);
+  }
+
+  std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
+
+  for (const auto& shape : shapes) {
+    for (const auto& index : shape.mesh.indices) {
+      Vertex vertex = {};
+
+      vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]};
+
+      vertex.texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
+                         1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
+
+      vertex.color = {1.0f, 1.0f, 1.0f};
+
+      if (uniqueVertices.count(vertex) == 0) {
+        uniqueVertices[vertex] = static_cast<uint32_t>(chalet.verticies.size());
+        chalet.verticies.push_back(vertex);
+      }
+
+      chalet.indices.push_back(uniqueVertices[vertex]);
+    }
+  }
 }
 
 /**
@@ -951,7 +1008,7 @@ VkImageView vkTutorialApp::create_image_view(VkImage image, VkFormat format, VkI
 void vkTutorialApp::create_texture_image()
 {
   int          texWidth, texHeight, texChannels;
-  stbi_uc*     pixels = stbi_load("../data/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+  stbi_uc*     pixels    = stbi_load(chalet.texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
   VkDeviceSize imageSize = texWidth * texHeight * 4;
 
   if (!pixels) {
@@ -1348,7 +1405,7 @@ void vkTutorialApp::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_
  */
 void vkTutorialApp::create_vertex_buffer()
 {
-  VkDeviceSize bufferSize = sizeof(verticies[0]) * verticies.size();
+  VkDeviceSize bufferSize = sizeof(chalet.verticies[0]) * chalet.verticies.size();
 
   VkBuffer       stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
@@ -1361,7 +1418,7 @@ void vkTutorialApp::create_vertex_buffer()
 
   void* data;
   vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-  memcpy(data, verticies.data(), (size_t)bufferSize);
+  memcpy(data, chalet.verticies.data(), (size_t)bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
 
   create_buffer(bufferSize,
@@ -1380,7 +1437,7 @@ void vkTutorialApp::create_vertex_buffer()
  */
 void vkTutorialApp::create_index_buffer()
 {
-  VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+  VkDeviceSize bufferSize = sizeof(chalet.indices[0]) * chalet.indices.size();
 
   VkBuffer       stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
@@ -1393,7 +1450,7 @@ void vkTutorialApp::create_index_buffer()
 
   void* data;
   vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-  memcpy(data, indices.data(), (size_t)bufferSize);
+  memcpy(data, chalet.indices.data(), (size_t)bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
 
   create_buffer(bufferSize,
@@ -1619,7 +1676,7 @@ void vkTutorialApp::create_command_buffers()
     VkBuffer     vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[]       = {0};
     vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(commandBuffers[i],
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1629,7 +1686,7 @@ void vkTutorialApp::create_command_buffers()
                             &descriptorSets[i],
                             0,
                             nullptr);
-    vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(chalet.indices.size()), 1, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffers[i]);
 
     if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
