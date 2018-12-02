@@ -204,6 +204,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   std::vector<VkDeviceMemory>  uniformBuffersMemory;
   VkDescriptorPool             descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
+  VkSampleCountFlagBits        msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
   uint32_t       mipLevels;
   VkImage        textureImage;
@@ -214,6 +215,10 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   VkImage        depthImage;
   VkDeviceMemory depthImageMemory;
   VkImageView    depthImageView;
+
+  VkImage        colorImage;
+  VkDeviceMemory colorImageMemory;
+  VkImageView    colorImageView;
 
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
@@ -268,6 +273,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
                                                  VkFormatFeatureFlags         features);
   VkFormat                 find_depth_format();
   bool                     has_stencil_component(VkFormat format);
+  VkSampleCountFlagBits    get_max_usable_sample_count();
 
   void create_buffer(VkDeviceSize          size,
                      VkBufferUsageFlags    usage,
@@ -278,6 +284,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void            create_image(uint32_t              width,
                                uint32_t              height,
                                uint32_t              mipLevels,
+                               VkSampleCountFlagBits numSamples,
                                VkFormat              format,
                                VkImageTiling         tiling,
                                VkImageUsageFlags     usage,
@@ -295,6 +302,7 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   void            copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
   VkImageView     create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
   void generate_mipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+  void create_color_resources();
 
   VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& availableFormats);
   VkPresentModeKHR   choose_swap_present_mode(const std::vector<VkPresentModeKHR> availablePresentModes);

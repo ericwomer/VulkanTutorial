@@ -2,10 +2,10 @@
 #include <limits>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 
 #include <thread>
 #include <chrono>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -379,6 +379,10 @@ void vkTutorialApp::cleanup_swapchain()
       return;
   }
 
+  vkDestroyImageView(device, colorImageView, nullptr);
+  vkDestroyImage(device, colorImage, nullptr);
+  vkFreeMemory(device, colorImageMemory, nullptr);
+
   for (auto framebuffer : swapchainFramebuffers) {
     vkDestroyFramebuffer(device, framebuffer, nullptr);
   }
@@ -543,6 +547,7 @@ void vkTutorialApp::pick_physical_device()
   for (const auto& device : devices) {
     if (is_device_suitable(device)) {
       physicalDevice = device;
+      msaaSamples    = get_max_usable_sample_count();
     }
   }
 
@@ -751,6 +756,7 @@ void vkTutorialApp::create_logical_device()
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
   deviceFeatures.samplerAnisotropy        = VK_TRUE;
+  deviceFeatures.sampleRateShading        = VK_TRUE;
 
   VkDeviceCreateInfo createInfo      = {};
   createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -822,6 +828,7 @@ void vkTutorialApp::init_vulkan()
   create_descriptor_set_layout();
   create_graphics_pipeline();
   create_command_pool();
+  create_color_resources();
   create_depth_resources();
   create_frame_buffer();
   create_texture_image();
@@ -837,6 +844,67 @@ void vkTutorialApp::init_vulkan()
   create_sync_objects();
 }
 
+/**
+ * @brief
+ */
+void vkTutorialApp::create_color_resources()
+{
+  VkFormat colorFormat = swapchainImageFormat;
+
+  create_image(swapchainExtent.width,
+               swapchainExtent.height,
+               1,
+               msaaSamples,
+               colorFormat,
+               VK_IMAGE_TILING_OPTIMAL,
+               VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               colorImage,
+               colorImageMemory);
+  colorImageView = create_image_view(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+  transition_image_layout(colorImage,
+                          colorFormat,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          1);
+}
+
+/**
+ * @brief
+ * @return
+ */
+VkSampleCountFlagBits vkTutorialApp::get_max_usable_sample_count()
+{
+  VkPhysicalDeviceProperties physicalDeviceProperties;
+  vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+  VkSampleCountFlags counts = std::min(physicalDeviceProperties.limits.framebufferColorSampleCounts,
+                                       physicalDeviceProperties.limits.framebufferDepthSampleCounts);
+
+  if (counts & VK_SAMPLE_COUNT_64_BIT) {
+    return VK_SAMPLE_COUNT_64_BIT;
+  }
+  if (counts & VK_SAMPLE_COUNT_32_BIT) {
+    return VK_SAMPLE_COUNT_32_BIT;
+  }
+  if (counts & VK_SAMPLE_COUNT_16_BIT) {
+    return VK_SAMPLE_COUNT_16_BIT;
+  }
+  if (counts & VK_SAMPLE_COUNT_8_BIT) {
+    return VK_SAMPLE_COUNT_8_BIT;
+  }
+  if (counts & VK_SAMPLE_COUNT_4_BIT) {
+    return VK_SAMPLE_COUNT_4_BIT;
+  }
+  if (counts & VK_SAMPLE_COUNT_2_BIT) {
+    return VK_SAMPLE_COUNT_2_BIT;
+  }
+  return VK_SAMPLE_COUNT_1_BIT;
+}
+
+/**
+ * @brief
+ */
 void vkTutorialApp::load_model()
 {
   tinyobj::attrib_t                attrib;
@@ -927,6 +995,7 @@ void vkTutorialApp::create_depth_resources()
   create_image(swapchainExtent.width,
                swapchainExtent.height,
                1,
+               msaaSamples,
                depthFormat,
                VK_IMAGE_TILING_OPTIMAL,
                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1041,6 +1110,7 @@ void vkTutorialApp::create_texture_image()
   create_image(texWidth,
                texHeight,
                mipLevels,
+               VK_SAMPLE_COUNT_1_BIT,
                VK_FORMAT_R8G8B8A8_UNORM,
                VK_IMAGE_TILING_OPTIMAL,
                VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1203,6 +1273,7 @@ void vkTutorialApp::generate_mipmaps(VkImage  image,
 void vkTutorialApp::create_image(uint32_t              width,
                                  uint32_t              height,
                                  uint32_t              mipLevels,
+                                 VkSampleCountFlagBits numSamples,
                                  VkFormat              format,
                                  VkImageTiling         tiling,
                                  VkImageUsageFlags     usage,
@@ -1223,7 +1294,7 @@ void vkTutorialApp::create_image(uint32_t              width,
   imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
   imageInfo.usage             = usage;
   imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.samples           = numSamples;
   imageInfo.flags             = 0;  // Optional
   imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -1359,6 +1430,7 @@ bool vkTutorialApp::recreate_swap_chain()
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
+    create_color_resources();
     create_depth_resources();
     create_frame_buffer();
     create_command_buffers();
@@ -1497,6 +1569,12 @@ void vkTutorialApp::transition_image_layout(VkImage       image,
 
     sourceStage      = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    sourceStage      = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   } else {
     throw std::runtime_error("Unsupported layout transistion!");
   }
@@ -1849,7 +1927,7 @@ void vkTutorialApp::create_frame_buffer()
   swapchainFramebuffers.resize(swapchainImageViews.size());
 
   for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-    std::array<VkImageView, 2> attachments = {swapchainImageViews[i], depthImageView};
+    std::array<VkImageView, 3> attachments = {colorImageView, depthImageView, swapchainImageViews[i]};
 
     VkFramebufferCreateInfo framebufferInfo = {};
     framebufferInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1870,23 +1948,33 @@ void vkTutorialApp::create_render_pass()
 {
   VkAttachmentDescription colorAttachment = {};
   colorAttachment.format                  = swapchainImageFormat;
-  colorAttachment.samples                 = VK_SAMPLE_COUNT_1_BIT;
+  colorAttachment.samples                 = msaaSamples;
   colorAttachment.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachment.storeOp                 = VK_ATTACHMENT_STORE_OP_STORE;
   colorAttachment.stencilLoadOp           = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   colorAttachment.stencilStoreOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   colorAttachment.initialLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachment.finalLayout             = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  colorAttachment.finalLayout             = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   VkAttachmentDescription depthAttachment = {};
   depthAttachment.format                  = find_depth_format();
-  depthAttachment.samples                 = VK_SAMPLE_COUNT_1_BIT;
+  depthAttachment.samples                 = msaaSamples;
   depthAttachment.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachment.storeOp                 = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachment.stencilLoadOp           = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   depthAttachment.stencilStoreOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachment.initialLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
   depthAttachment.finalLayout             = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkAttachmentDescription colorAttachmentResolve = {};
+  colorAttachmentResolve.format                  = swapchainImageFormat;
+  colorAttachmentResolve.samples                 = VK_SAMPLE_COUNT_1_BIT;
+  colorAttachmentResolve.loadOp                  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  colorAttachmentResolve.storeOp                 = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  colorAttachmentResolve.stencilLoadOp           = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  colorAttachmentResolve.stencilStoreOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  colorAttachmentResolve.initialLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
+  colorAttachmentResolve.finalLayout             = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
   VkAttachmentReference colorAttachmentRef = {};
   colorAttachmentRef.attachment            = 0;
@@ -1896,11 +1984,16 @@ void vkTutorialApp::create_render_pass()
   depthAttachmentRef.attachment            = 1;
   depthAttachmentRef.layout                = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+  VkAttachmentReference colorAttachmentResolveRef = {};
+  colorAttachmentResolveRef.attachment            = 2;
+  colorAttachmentResolveRef.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
   VkSubpassDescription subpass    = {};
   subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount    = 1;
   subpass.pColorAttachments       = &colorAttachmentRef;
   subpass.pDepthStencilAttachment = &depthAttachmentRef;
+  subpass.pResolveAttachments     = &colorAttachmentResolveRef;
 
   VkSubpassDependency dependency = {};
   dependency.srcSubpass          = VK_SUBPASS_EXTERNAL;
@@ -1910,7 +2003,7 @@ void vkTutorialApp::create_render_pass()
   dependency.dstStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   dependency.dstAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-  std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+  std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
 
   VkRenderPassCreateInfo renderPassInfo = {};
   renderPassInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -2033,9 +2126,9 @@ void vkTutorialApp::create_graphics_pipeline()
 
   VkPipelineMultisampleStateCreateInfo multisampling = {};
   multisampling.sType                                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  multisampling.sampleShadingEnable                  = VK_FALSE;
-  multisampling.rasterizationSamples                 = VK_SAMPLE_COUNT_1_BIT;
-  multisampling.minSampleShading                     = 1.0f;      // optional
+  multisampling.sampleShadingEnable                  = VK_TRUE;
+  multisampling.rasterizationSamples                 = msaaSamples;
+  multisampling.minSampleShading                     = 0.2f;      // optional
   multisampling.pSampleMask                          = nullptr;   // optional
   multisampling.alphaToCoverageEnable                = VK_FALSE;  // optional
   multisampling.alphaToOneEnable                     = VK_FALSE;  // optional
