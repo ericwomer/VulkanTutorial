@@ -35,6 +35,7 @@ configure_file(input : 'src/config.h.in',
 
 vktutorial_src = [
     'src/vulkan/VulkanFunctions.cpp',
+    'src/vulkan/VulkanCommon.cpp',
     'src/vktutorialapp.cpp',
     'src/main.cpp'
 ]
@@ -48,9 +49,7 @@ vktutorial_include_directories = [
     ]
 
 vktutorial_cflags = [
-    '-stdlib=libc++',
-    '-DVK_NO_PROTOTYPES',
-    '-DVK_USE_PLATFORM_XCB_KHR'
+    '-stdlib=libc++'
     ]
 
 if get_option('debug') == true or get_option('buildtype') == 'debug'
