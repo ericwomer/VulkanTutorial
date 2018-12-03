@@ -12,7 +12,7 @@
 // clang-format off
 // clang-format on
 
-namespace Rake { namespace Application {
+namespace Rake::Application {
 
 class vkTutorialApp : public Rake::Base::Skeleton {
   public:
@@ -57,5 +57,5 @@ class vkTutorialApp : public Rake::Base::Skeleton {
   }
 };
 
-}}      // namespace Rake::Application
+}  // namespace Rake::Application
 #endif  // SKELETONAPP_H

@@ -21,6 +21,10 @@
     <File Name="src/main.cpp"/>
     <File Name="src/vktutorialapp.cpp"/>
     <VirtualDirectory Name="vulkan">
+      <File Name="src/vulkan/VulkanObjects.cpp"/>
+      <File Name="src/vulkan/VulkanObjects.h"/>
+      <File Name="src/vulkan/VulkanUtilities.h"/>
+      <File Name="src/vulkan/VulkanUtilities.cpp"/>
       <File Name="src/vulkan/VulkanFunctions.inl"/>
       <File Name="src/vulkan/VulkanFunctions.h"/>
       <File Name="src/vulkan/VulkanFunctions.cpp"/>

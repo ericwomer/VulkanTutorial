@@ -9,7 +9,7 @@
 
 #include "vulkan/VulkanFunctions.h"
 
-namespace Rake { namespace Application {
+namespace Rake::Application {
 
 /**
  * @brief Construct a new vk Tutorial App::vk Tutorial App object
@@ -245,4 +245,4 @@ bool vkTutorialApp::rendering_loop()
   return result;
 }
 
-}}  // namespace Rake::Application
+}  // namespace Rake::Application

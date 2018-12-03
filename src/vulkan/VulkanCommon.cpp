@@ -20,8 +20,8 @@
 
 namespace std {
 template <>
-struct hash<Rake::Graphics::Vertex> {
-  size_t operator()(Rake::Graphics::Vertex const& vertex) const
+struct hash<Rake::Graphics::Object::Vertex> {
+  size_t operator()(Rake::Graphics::Object::Vertex const& vertex) const
   {
     return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
            (hash<glm::vec2>()(vertex.texCoord) << 1);
@@ -683,11 +683,11 @@ void Core::load_model()
     throw std::runtime_error(warn + err);
   }
 
-  std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
+  std::unordered_map<Object::Vertex, uint32_t> uniqueVertices = {};
 
   for (const auto& shape : shapes) {
     for (const auto& index : shape.mesh.indices) {
-      Vertex vertex = {};
+      Object::Vertex vertex = {};
 
       vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
                     attrib.vertices[3 * index.vertex_index + 1],
@@ -1103,7 +1103,7 @@ void Core::create_descriptor_sets()
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer                 = uniformBuffers[i];
     bufferInfo.offset                 = 0;
-    bufferInfo.range                  = sizeof(UniformBufferObject);
+    bufferInfo.range                  = sizeof(Object::UniformBufferObject);
 
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1163,7 +1163,7 @@ void Core::create_descriptor_pool()
  */
 void Core::create_uniform_buffers()
 {
-  VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+  VkDeviceSize bufferSize = sizeof(Object::UniformBufferObject);
 
   uniformBuffers.resize(swapchainImages.size());
   uniformBuffersMemory.resize(swapchainImages.size());
@@ -1449,7 +1449,7 @@ void Core::update_uniform_buffer(uint32_t currentImage)
   auto  currentTime = std::chrono::high_resolution_clock::now();
   float time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-  struct UniformBufferObject ubo = {};
+  struct Object::UniformBufferObject ubo = {};
   ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.proj  = glm::perspective(glm::radians(45.0f), swapchainExtent.width / (float)swapchainExtent.height, 0.1f, 10.0f);
@@ -1843,8 +1843,8 @@ void Core::create_graphics_pipeline()
   VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
   vertexInputInfo.sType                                = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-  auto bindingDescription   = Vertex::getBindingDescription();
-  auto attributeDescription = Vertex::getAttributesDescription();
+  auto bindingDescription   = Object::Vertex::getBindingDescription();
+  auto attributeDescription = Object::Vertex::getAttributesDescription();
 
   vertexInputInfo.vertexBindingDescriptionCount   = 1;
   vertexInputInfo.pVertexBindingDescriptions      = &bindingDescription;  // optional
