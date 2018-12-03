@@ -23,6 +23,8 @@
 
 #include "VulkanFunctions.h"
 #include "VulkanObjects.h"
+#include "VulkanFactories.h"
+#include "VulkanUtilities.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -37,7 +39,7 @@
 #include <dlfcn.h>
 #endif
 
-namespace Rake { namespace Graphics {
+namespace Rake::Graphics {
 /**
  * @brief Static list of application validation layers for Vulkan debugging
  *
@@ -69,6 +71,19 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+struct QueueFamilyIndices {
+  std::optional<uint32_t> graphicsFamily;
+  std::optional<uint32_t> presentFamily;
+
+  bool is_complete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+};
+
+struct SwapChainSupportDetails {
+  VkSurfaceCapabilitiesKHR        capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR>   presentModes;
+};
+
 class Core {
   public:
   Core();
@@ -96,6 +111,9 @@ class Core {
 
   const int MAX_FRAMES_IN_FLIGHT = 2;
   size_t    currentFrame         = 0;
+
+  Utility::Helper     helper;
+  Utility::Filesystem filesystem;
 
   VkInstance                   instance;
   VkDebugUtilsMessengerEXT     callback;
@@ -145,24 +163,13 @@ class Core {
   std::vector<VkFence>     inFlightFences;
   bool                     framebufferResized = false;
 
+  VkShaderModule create_shader_module(const VkDevice& device, const std::vector<char>& code);
+
   void* VulkanLibrary = nullptr;
   bool  canRender     = false;
 
   char*    extensionStringNames[64];  // Eric: why am I char const *?
   uint32_t extensionCount = 0;
-
-  struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    bool is_complete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
-  };
-
-  struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR        capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR>   presentModes;
-  };
 
   QueueFamilyIndices familyIndicies;
 
@@ -173,21 +180,6 @@ class Core {
   void setup_debug_callback();
   void update_uniform_buffer(uint32_t currentImage);
   bool clear();
-
-  std::vector<const char*> get_required_extensions();
-  SwapChainSupportDetails  query_swap_chain_support(VkPhysicalDevice device);
-  QueueFamilyIndices       find_queue_families(VkPhysicalDevice device);
-  bool                     check_validation_layer_support();
-  bool                     check_device_extension_support(VkPhysicalDevice device);
-  bool                     is_device_suitable(VkPhysicalDevice device);
-  void                     get_device_queues();
-  uint32_t                 find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-  VkFormat                 find_supported_format(const std::vector<VkFormat>& candidates,
-                                                 VkImageTiling                tiling,
-                                                 VkFormatFeatureFlags         features);
-  VkFormat                 find_depth_format();
-  bool                     has_stencil_component(VkFormat format);
-  VkSampleCountFlagBits    get_max_usable_sample_count();
 
   void create_buffer(VkDeviceSize          size,
                      VkBufferUsageFlags    usage,
@@ -253,9 +245,6 @@ class Core {
 
   void cleanup_swapchain();
 
-  static std::vector<char> read_file(const std::string& filename);
-  VkShaderModule           create_shader_module(const std::vector<char>& code);
-
   // Vulkan Private Interface Methods Borrowed from https://software.intel.com/en-us/articles/api-without-secrets-introduction-to-vulkan-part-1
 
   bool on_child_window_size_changed();
@@ -265,10 +254,7 @@ class Core {
   bool load_global_entry_points();
   bool load_instance_level_entry_points();
   bool load_device_entry_level_points();
-
-  // Misc Private Methods
-  void load_model();
 };
 
-}}      // namespace Rake::Graphics
+}  // namespace Rake::Graphics
 #endif  // VULKANCOMMON_H

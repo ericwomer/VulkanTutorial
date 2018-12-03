@@ -34,6 +34,7 @@ configure_file(input : 'src/config.h.in',
               configuration : conf_data)
 
 vktutorial_src = [
+    'src/vulkan/VulkanUtilities.cpp',
     'src/vulkan/VulkanFunctions.cpp',
     'src/vulkan/VulkanCommon.cpp',
     'src/vktutorialapp.cpp',
@@ -53,7 +54,7 @@ vktutorial_cflags = [
     ]
 
 if get_option('debug') == true or get_option('buildtype') == 'debug'
-  vktutorial_cflags += ['-g', '-Og']
+  vktutorial_cflags += ['-g']
 else
   vktutorial_cflags += ['-O2']
 endif

@@ -12,22 +12,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include "VulkanFunctions.h"
 #include "VulkanCommon.h"
-
-namespace std {
-template <>
-struct hash<Rake::Graphics::Object::Vertex> {
-  size_t operator()(Rake::Graphics::Object::Vertex const& vertex) const
-  {
-    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-           (hash<glm::vec2>()(vertex.texCoord) << 1);
-  }
-};
-}  // namespace std
 
 namespace Rake { namespace Graphics {
 /**
@@ -184,84 +170,12 @@ bool Core::on_window_size_changed()
 }
 
 /**
-* @brief Get the VkExtensionProperties object and fill extensionNames and
-* extensionCount
-*
-*/
-std::vector<const char*> Core::get_required_extensions()
-{
-  uint32_t                           instanceExtensionCount = 0;
-  std::vector<VkExtensionProperties> vkInstanceExtensions;
-  vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr);
-  vkInstanceExtensions.resize(instanceExtensionCount);
-  vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, vkInstanceExtensions.data());
-
-  std::cout << "\nNumber of availiable instance extensions\t" << vkInstanceExtensions.size() << "\n";
-  std::cout << "Available Extension List: \n";
-  for (auto& ext : vkInstanceExtensions) {
-    std::cout << "\t" << ext.extensionName << "\n";
-  }
-  std::cout << std::endl;
-
-  std::vector<const char*> extensions;
-
-  for (auto& ext : instanceExtensions) {
-    extensions.push_back(ext);
-  }
-
-  if (enableValidationLayers) {
-    extensions.push_back("VK_EXT_debug_report");
-    extensions.push_back("VK_EXT_debug_utils");
-  }
-
-  std::cout << "Number of active instance extensions\t" << extensions.size() << "\n";
-  std::cout << "Active Extension List: \n";
-
-  for (auto const& ext : extensions) {
-    std::cout << "\t" << ext << "\n";
-  }
-  std::cout << std::endl;
-
-  return extensions;
-}
-
-/**
-* @brief Check for Validation Layer support
-*
-* @return true
-* @return false
-*/
-bool Core::check_validation_layer_support()
-{
-  uint32_t layerCount = 0;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-  for (const char* layerName : validationLayers) {
-    bool layerFound = false;
-
-    for (auto& layerProperties : availableLayers) {
-      if (strcmp(layerName, layerProperties.layerName) == 0) {
-        layerFound = true;
-        break;
-      }
-    }
-    if (!layerFound) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
 * @brief Create a Instance object
 *
 */
 void Core::create_instance()
 {
-  if (enableValidationLayers && !check_validation_layer_support()) {
+  if (enableValidationLayers && !helper.check_validation_layer_support()) {
     throw std::runtime_error("\tValidation layers requested, but not available!");
   }
 
@@ -278,7 +192,7 @@ void Core::create_instance()
   createInfo.sType                = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo     = &appInfo;
 
-  auto extensions                    = get_required_extensions();
+  auto extensions                    = helper.get_required_extensions();
   createInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
   createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -312,128 +226,15 @@ void Core::pick_physical_device()
   vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
   for (const auto& device : devices) {
-    if (is_device_suitable(device)) {
+    if (helper.is_device_suitable(device, surface)) {
       physicalDevice = device;
-      msaaSamples    = get_max_usable_sample_count();
+      msaaSamples    = helper.get_max_usable_sample_count(physicalDevice);
     }
   }
 
   if (physicalDevice == VK_NULL_HANDLE) {
     throw std::runtime_error("failed to find a sutible GPU!");
   }
-}
-
-/**
-* @brief
-*
-* @param device
-* @return true
-* @return false
-*/
-bool Core::is_device_suitable(VkPhysicalDevice dev)
-{
-  QueueFamilyIndices indicies           = find_queue_families(dev);
-  bool               extensionSupported = check_device_extension_support(dev);
-  bool               swapChainAdequate  = false;
-
-  if (extensionSupported) {
-    SwapChainSupportDetails swapChainSupport = query_swap_chain_support(dev);
-    swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-  }
-
-  VkPhysicalDeviceFeatures supportedFeatures;
-  vkGetPhysicalDeviceFeatures(dev, &supportedFeatures);
-
-  return indicies.is_complete() && extensionSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-}
-
-/**
-* @brief
-*
-* @param device
-* @return true
-* @return false
-*/
-bool Core::check_device_extension_support(VkPhysicalDevice device)
-{
-  uint32_t extensionCount = 0;
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-  std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
-  for (const auto& extension : availableExtensions) {
-    requiredExtensions.erase(extension.extensionName);
-  }
-
-  return requiredExtensions.empty();
-}
-
-/**
- * @brief
- * @param device
- * @return
- */
-Core::SwapChainSupportDetails Core::query_swap_chain_support(VkPhysicalDevice device)
-{
-  SwapChainSupportDetails details;
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-  uint32_t formatCount = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-
-  if (formatCount != 0) {
-    details.formats.resize(formatCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
-  }
-
-  uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-  if (presentModeCount != 0) {
-    details.presentModes.resize(presentModeCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-  }
-
-  return details;
-}
-
-/**
-* @brief
-*
-* @param device
-* @return Core::QueueFamilyIndices
-*/
-Core::QueueFamilyIndices Core::find_queue_families(VkPhysicalDevice device)
-{
-  QueueFamilyIndices indices;
-
-  uint32_t queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-  int i = 0;
-  for (const auto& queueFamily : queueFamilies) {
-    VkBool32 presentSupport = false;
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-    if (queueFamily.queueCount > 0 && presentSupport) {
-      indices.presentFamily = i;
-    }
-
-    if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      indices.graphicsFamily = i;
-    }
-
-    if (indices.is_complete()) {
-      break;
-    }
-    i++;
-  }
-  return indices;
 }
 
 /**
@@ -505,7 +306,7 @@ VkExtent2D Core::choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities
  */
 void Core::create_logical_device()
 {
-  familyIndicies = find_queue_families(physicalDevice);
+  familyIndicies = helper.find_queue_families(physicalDevice, surface);
 
   std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
   std::set<uint32_t>                   uniqueQueueFamilies = {familyIndicies.graphicsFamily.value(),
@@ -549,16 +350,6 @@ void Core::create_logical_device()
  * @brief
  *
  */
-void Core::get_device_queues()
-{
-  vkGetDeviceQueue(device, familyIndicies.presentFamily.value(), 0, &presentQueue);
-  vkGetDeviceQueue(device, familyIndicies.graphicsFamily.value(), 0, &graphicsQueue);
-}
-
-/**
- * @brief
- *
- */
 void Core::create_surface(xcb_connection_t* connection, xcb_window_t handle)
 {
   VkXcbSurfaceCreateInfoKHR surface_create_info = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
@@ -588,7 +379,7 @@ void Core::init_vulkan(xcb_connection_t* connection, xcb_window_t handle)
   pick_physical_device();
   create_logical_device();
   load_device_entry_level_points();
-  get_device_queues();
+  helper.get_device_queues(device, familyIndicies, presentQueue, graphicsQueue);
   create_swap_chain();
   create_image_views();
   create_render_pass();
@@ -601,7 +392,7 @@ void Core::init_vulkan(xcb_connection_t* connection, xcb_window_t handle)
   create_texture_image();
   create_texture_image_view();
   create_texture_sampler();
-  load_model();
+  filesystem.load_model(chalet);
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -638,126 +429,10 @@ void Core::create_color_resources()
 
 /**
  * @brief
- * @return
- */
-VkSampleCountFlagBits Core::get_max_usable_sample_count()
-{
-  VkPhysicalDeviceProperties physicalDeviceProperties;
-  vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
-
-  VkSampleCountFlags counts = std::min(physicalDeviceProperties.limits.framebufferColorSampleCounts,
-                                       physicalDeviceProperties.limits.framebufferDepthSampleCounts);
-
-  if (counts & VK_SAMPLE_COUNT_64_BIT) {
-    return VK_SAMPLE_COUNT_64_BIT;
-  }
-  if (counts & VK_SAMPLE_COUNT_32_BIT) {
-    return VK_SAMPLE_COUNT_32_BIT;
-  }
-  if (counts & VK_SAMPLE_COUNT_16_BIT) {
-    return VK_SAMPLE_COUNT_16_BIT;
-  }
-  if (counts & VK_SAMPLE_COUNT_8_BIT) {
-    return VK_SAMPLE_COUNT_8_BIT;
-  }
-  if (counts & VK_SAMPLE_COUNT_4_BIT) {
-    return VK_SAMPLE_COUNT_4_BIT;
-  }
-  if (counts & VK_SAMPLE_COUNT_2_BIT) {
-    return VK_SAMPLE_COUNT_2_BIT;
-  }
-  return VK_SAMPLE_COUNT_1_BIT;
-}
-
-/**
- * @brief
- */
-void Core::load_model()
-{
-  tinyobj::attrib_t                attrib;
-  std::vector<tinyobj::shape_t>    shapes;
-  std::vector<tinyobj::material_t> materials;
-  std::string                      warn, err;
-
-  if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, chalet.modelPath.c_str())) {
-    throw std::runtime_error(warn + err);
-  }
-
-  std::unordered_map<Object::Vertex, uint32_t> uniqueVertices = {};
-
-  for (const auto& shape : shapes) {
-    for (const auto& index : shape.mesh.indices) {
-      Object::Vertex vertex = {};
-
-      vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]};
-
-      vertex.texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
-                         1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
-
-      vertex.color = {1.0f, 1.0f, 1.0f};
-
-      if (uniqueVertices.count(vertex) == 0) {
-        uniqueVertices[vertex] = static_cast<uint32_t>(chalet.verticies.size());
-        chalet.verticies.push_back(vertex);
-      }
-
-      chalet.indices.push_back(uniqueVertices[vertex]);
-    }
-  }
-}
-
-/**
- * @brief
- * @param candidates
- * @param tiling
- * @param features
- * @return
- */
-VkFormat Core::find_supported_format(const std::vector<VkFormat>& candidates,
-                                     VkImageTiling                tiling,
-                                     VkFormatFeatureFlags         features)
-{
-  for (VkFormat format : candidates) {
-    VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
-
-    if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-      return format;
-    } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-      return format;
-    }
-  }
-  throw std::runtime_error("Failed to find supported format!");
-}
-
-/**
- * @brief
- * @return
- */
-VkFormat Core::find_depth_format()
-{
-  std::vector<VkFormat> candidates = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
-  return find_supported_format(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
-
-/**
- * @brief
- * @param format
- * @return
- */
-bool Core::has_stencil_component(VkFormat format)
-{
-  return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}
-
-/**
- * @brief
  */
 void Core::create_depth_resources()
 {
-  VkFormat depthFormat = find_depth_format();
+  VkFormat depthFormat = helper.find_depth_format(physicalDevice);
 
   create_image(swapchainExtent.width,
                swapchainExtent.height,
@@ -1072,7 +747,7 @@ void Core::create_image(uint32_t              width,
   VkMemoryAllocateInfo allocInfo = {};
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = memRequirements.size;
-  allocInfo.memoryTypeIndex      = find_memory_type(memRequirements.memoryTypeBits, properties);
+  allocInfo.memoryTypeIndex      = helper.find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate image memory!");
@@ -1203,25 +878,6 @@ bool Core::recreate_swap_chain()
   return false;
 }
 
-/**
- * @brief
- * @param typeFilter
- * @param properties
- * @return
- */
-uint32_t Core::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-  VkPhysicalDeviceMemoryProperties memProperties;
-  vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-  for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-    if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-      return i;
-    }
-  }
-  throw std::runtime_error("Failed to suitable memory type!");
-}
-
 VkCommandBuffer Core::begin_single_time_commands()
 {
   VkCommandBufferAllocateInfo allocInfo = {};
@@ -1307,7 +963,7 @@ void Core::transition_image_layout(VkImage       image,
 
   if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    if (has_stencil_component(format)) {
+    if (helper.has_stencil_component(format)) {
       barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
   } else {
@@ -1601,7 +1257,7 @@ void Core::create_buffer(VkDeviceSize          size,
   VkMemoryAllocateInfo allocInfo = {};
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = memRequirements.size;
-  allocInfo.memoryTypeIndex      = find_memory_type(memRequirements.memoryTypeBits, properties);
+  allocInfo.memoryTypeIndex      = helper.find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate buffer memory!");
@@ -1674,7 +1330,7 @@ void Core::create_command_buffers()
 
 void Core::create_command_pool()
 {
-  QueueFamilyIndices queueFamilyIndices = find_queue_families(physicalDevice);
+  QueueFamilyIndices queueFamilyIndices = helper.find_queue_families(physicalDevice, surface);
 
   VkCommandPoolCreateInfo poolInfo = {};
   poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1721,7 +1377,7 @@ void Core::create_render_pass()
   colorAttachment.finalLayout             = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   VkAttachmentDescription depthAttachment = {};
-  depthAttachment.format                  = find_depth_format();
+  depthAttachment.format                  = helper.find_depth_format(physicalDevice);
   depthAttachment.samples                 = msaaSamples;
   depthAttachment.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachment.storeOp                 = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1812,19 +1468,39 @@ void Core::create_descriptor_set_layout()
 }
 
 /**
+ * @brief
+ *
+ * @param code
+ * @return VkShaderModule
+ */
+VkShaderModule Core::create_shader_module(const VkDevice& device, const std::vector<char>& code)
+{
+  VkShaderModuleCreateInfo createInfo = {};
+  createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  createInfo.codeSize                 = code.size();
+  createInfo.pCode                    = reinterpret_cast<const uint32_t*>(code.data());
+
+  VkShaderModule shaderModule;
+  if (auto result = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule); result != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create shader module!");
+  }
+  return shaderModule;
+}
+
+/**
 * @brief
 *
 */
 void Core::create_graphics_pipeline()
 {
-  auto vertShaderCode = read_file("triangle.vert.spv");
-  auto fragShaderCode = read_file("triangle.frag.spv");
+  auto vertShaderCode = filesystem.read_file("triangle.vert.spv");
+  auto fragShaderCode = filesystem.read_file("triangle.frag.spv");
 
   VkShaderModule vertShaderModule;
   VkShaderModule fragShaderModule;
 
-  vertShaderModule = create_shader_module(vertShaderCode);
-  fragShaderModule = create_shader_module(fragShaderCode);
+  vertShaderModule = create_shader_module(device, vertShaderCode);
+  fragShaderModule = create_shader_module(device, fragShaderCode);
 
   VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
   vertShaderStageInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1971,26 +1647,6 @@ void Core::create_graphics_pipeline()
 /**
  * @brief
  *
- * @param code
- * @return VkShaderModule
- */
-VkShaderModule Core::create_shader_module(const std::vector<char>& code)
-{
-  VkShaderModuleCreateInfo createInfo = {};
-  createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  createInfo.codeSize                 = code.size();
-  createInfo.pCode                    = reinterpret_cast<const uint32_t*>(code.data());
-
-  VkShaderModule shaderModule;
-  if (auto result = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule); result != VK_SUCCESS) {
-    throw std::runtime_error("Failed to create shader module!");
-  }
-  return shaderModule;
-}
-
-/**
- * @brief
- *
  */
 void Core::create_image_views()
 {
@@ -2006,7 +1662,7 @@ void Core::create_swap_chain()
 {
   canRender = false;
 
-  SwapChainSupportDetails swapChainSupport = query_swap_chain_support(physicalDevice);
+  SwapChainSupportDetails swapChainSupport = helper.query_swap_chain_support(physicalDevice, surface);
   VkSurfaceFormatKHR      surfaceFomat     = choose_swap_surface_format(swapChainSupport.formats);
   VkPresentModeKHR        presentMode      = choose_swap_present_mode(swapChainSupport.presentModes);
   VkExtent2D              extent           = choose_swap_extent(swapChainSupport.capabilities);
@@ -2030,7 +1686,7 @@ void Core::create_swap_chain()
   createInfo.imageArrayLayers         = 1;
   createInfo.imageUsage               = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  QueueFamilyIndices indicies              = find_queue_families(physicalDevice);
+  QueueFamilyIndices indicies              = helper.find_queue_families(physicalDevice, surface);
   uint32_t           queueFamilyIndicies[] = {indicies.graphicsFamily.value(), indicies.presentFamily.value()};
 
   if (indicies.graphicsFamily != indicies.presentFamily) {
@@ -2191,28 +1847,4 @@ bool Core::load_device_entry_level_points()
   return true;
 }
 
-/**
- * @brief
- *
- * @param filename
- * @return std::vector<char>
- */
-std::vector<char> Core::read_file(const std::string& filename)
-{
-  std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-  if (!file.is_open()) {
-    throw std::runtime_error("Failed to open file!");
-  }
-
-  size_t            fileSize = (size_t)file.tellg();
-  std::vector<char> buffer(fileSize);
-
-  file.seekg(0);
-  file.read(buffer.data(), fileSize);
-
-  file.close();
-
-  return buffer;
-}
 }}  // namespace Rake::Graphics
