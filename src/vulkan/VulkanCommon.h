@@ -24,7 +24,7 @@
 #include "VulkanFunctions.h"
 #include "VulkanObjects.h"
 #include "VulkanFactories.h"
-#include "VulkanUtilities.h"
+// #include "VulkanUtilities.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -39,7 +39,16 @@
 #include <dlfcn.h>
 #endif
 
-namespace Rake::Graphics {
+namespace Rake { namespace Graphics {
+#if defined(NDEBUG)
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+class Helper;
+class Filesystem;
+
 /**
  * @brief Static list of application validation layers for Vulkan debugging
  *
@@ -65,24 +74,8 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
                                        VkDebugUtilsMessengerEXT     callback,
                                        const VkAllocationCallbacks* pAllocator);
 
-#if defined(NDEBUG)
-const bool enableValidationLayers = false;
-#else
-const bool enableValidationLayers = true;
-#endif
-
-struct QueueFamilyIndices {
-  std::optional<uint32_t> graphicsFamily;
-  std::optional<uint32_t> presentFamily;
-
-  bool is_complete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
-};
-
-struct SwapChainSupportDetails {
-  VkSurfaceCapabilitiesKHR        capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR>   presentModes;
-};
+template <typename T>
+std::unique_ptr<T> generate_unique_ptr();
 
 class Core {
   public:
@@ -105,6 +98,19 @@ class Core {
   bool ready_to_draw() { return canRender; }
   bool on_window_size_changed();
 
+  struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
+
+    bool is_complete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+  };
+
+  struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR        capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR>   presentModes;
+  };
+
   private:
   int width  = 800;
   int height = 600;
@@ -112,8 +118,8 @@ class Core {
   const int MAX_FRAMES_IN_FLIGHT = 2;
   size_t    currentFrame         = 0;
 
-  Utility::Helper     helper;
-  Utility::Filesystem filesystem;
+  std::unique_ptr<Helper>     helper;
+  std::unique_ptr<Filesystem> filesystem;
 
   VkInstance                   instance;
   VkDebugUtilsMessengerEXT     callback;
@@ -256,5 +262,6 @@ class Core {
   bool load_device_entry_level_points();
 };
 
-}  // namespace Rake::Graphics
+}}  // namespace Rake::Graphics
+
 #endif  // VULKANCOMMON_H

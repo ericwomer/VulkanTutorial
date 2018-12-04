@@ -14,8 +14,17 @@
 
 #include "VulkanFunctions.h"
 #include "VulkanCommon.h"
+#include "VulkanUtilities.h"
 
 namespace Rake { namespace Graphics {
+
+template <typename T>
+std::unique_ptr<T> generate_unique_ptr()
+{
+  auto temp = std::make_unique<T>();
+  return temp;
+}
+
 /**
 * @brief Create a vkDebugUtilsMessengerEXT object
 *
@@ -58,6 +67,9 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
 
 Core::Core()
 {
+  helper     = generate_unique_ptr<Helper>();
+  filesystem = generate_unique_ptr<Filesystem>();
+
   chalet.width       = 800;
   chalet.height      = 600;
   chalet.modelPath   = "data/models/chalet.obj";
@@ -175,7 +187,7 @@ bool Core::on_window_size_changed()
 */
 void Core::create_instance()
 {
-  if (enableValidationLayers && !helper.check_validation_layer_support()) {
+  if (enableValidationLayers && !helper->check_validation_layer_support()) {
     throw std::runtime_error("\tValidation layers requested, but not available!");
   }
 
@@ -192,7 +204,7 @@ void Core::create_instance()
   createInfo.sType                = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo     = &appInfo;
 
-  auto extensions                    = helper.get_required_extensions();
+  auto extensions                    = helper->get_required_extensions();
   createInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
   createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -226,9 +238,9 @@ void Core::pick_physical_device()
   vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
   for (const auto& device : devices) {
-    if (helper.is_device_suitable(device, surface)) {
+    if (helper->is_device_suitable(device, surface)) {
       physicalDevice = device;
-      msaaSamples    = helper.get_max_usable_sample_count(physicalDevice);
+      msaaSamples    = helper->get_max_usable_sample_count(physicalDevice);
     }
   }
 
@@ -306,7 +318,7 @@ VkExtent2D Core::choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities
  */
 void Core::create_logical_device()
 {
-  familyIndicies = helper.find_queue_families(physicalDevice, surface);
+  familyIndicies = helper->find_queue_families(physicalDevice, surface);
 
   std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
   std::set<uint32_t>                   uniqueQueueFamilies = {familyIndicies.graphicsFamily.value(),
@@ -379,7 +391,7 @@ void Core::init_vulkan(xcb_connection_t* connection, xcb_window_t handle)
   pick_physical_device();
   create_logical_device();
   load_device_entry_level_points();
-  helper.get_device_queues(device, familyIndicies, presentQueue, graphicsQueue);
+  helper->get_device_queues(device, familyIndicies, presentQueue, graphicsQueue);
   create_swap_chain();
   create_image_views();
   create_render_pass();
@@ -392,7 +404,7 @@ void Core::init_vulkan(xcb_connection_t* connection, xcb_window_t handle)
   create_texture_image();
   create_texture_image_view();
   create_texture_sampler();
-  filesystem.load_model(chalet);
+  filesystem->load_model(chalet);
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -432,7 +444,7 @@ void Core::create_color_resources()
  */
 void Core::create_depth_resources()
 {
-  VkFormat depthFormat = helper.find_depth_format(physicalDevice);
+  VkFormat depthFormat = helper->find_depth_format(physicalDevice);
 
   create_image(swapchainExtent.width,
                swapchainExtent.height,
@@ -747,7 +759,7 @@ void Core::create_image(uint32_t              width,
   VkMemoryAllocateInfo allocInfo = {};
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = memRequirements.size;
-  allocInfo.memoryTypeIndex      = helper.find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
+  allocInfo.memoryTypeIndex      = helper->find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate image memory!");
@@ -963,7 +975,7 @@ void Core::transition_image_layout(VkImage       image,
 
   if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    if (helper.has_stencil_component(format)) {
+    if (helper->has_stencil_component(format)) {
       barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
   } else {
@@ -1257,7 +1269,7 @@ void Core::create_buffer(VkDeviceSize          size,
   VkMemoryAllocateInfo allocInfo = {};
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = memRequirements.size;
-  allocInfo.memoryTypeIndex      = helper.find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
+  allocInfo.memoryTypeIndex      = helper->find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate buffer memory!");
@@ -1330,7 +1342,7 @@ void Core::create_command_buffers()
 
 void Core::create_command_pool()
 {
-  QueueFamilyIndices queueFamilyIndices = helper.find_queue_families(physicalDevice, surface);
+  QueueFamilyIndices queueFamilyIndices = helper->find_queue_families(physicalDevice, surface);
 
   VkCommandPoolCreateInfo poolInfo = {};
   poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1377,7 +1389,7 @@ void Core::create_render_pass()
   colorAttachment.finalLayout             = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   VkAttachmentDescription depthAttachment = {};
-  depthAttachment.format                  = helper.find_depth_format(physicalDevice);
+  depthAttachment.format                  = helper->find_depth_format(physicalDevice);
   depthAttachment.samples                 = msaaSamples;
   depthAttachment.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachment.storeOp                 = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1493,8 +1505,8 @@ VkShaderModule Core::create_shader_module(const VkDevice& device, const std::vec
 */
 void Core::create_graphics_pipeline()
 {
-  auto vertShaderCode = filesystem.read_file("triangle.vert.spv");
-  auto fragShaderCode = filesystem.read_file("triangle.frag.spv");
+  auto vertShaderCode = filesystem->read_file("triangle.vert.spv");
+  auto fragShaderCode = filesystem->read_file("triangle.frag.spv");
 
   VkShaderModule vertShaderModule;
   VkShaderModule fragShaderModule;
@@ -1662,7 +1674,7 @@ void Core::create_swap_chain()
 {
   canRender = false;
 
-  SwapChainSupportDetails swapChainSupport = helper.query_swap_chain_support(physicalDevice, surface);
+  SwapChainSupportDetails swapChainSupport = helper->query_swap_chain_support(physicalDevice, surface);
   VkSurfaceFormatKHR      surfaceFomat     = choose_swap_surface_format(swapChainSupport.formats);
   VkPresentModeKHR        presentMode      = choose_swap_present_mode(swapChainSupport.presentModes);
   VkExtent2D              extent           = choose_swap_extent(swapChainSupport.capabilities);
@@ -1686,7 +1698,7 @@ void Core::create_swap_chain()
   createInfo.imageArrayLayers         = 1;
   createInfo.imageUsage               = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  QueueFamilyIndices indicies              = helper.find_queue_families(physicalDevice, surface);
+  QueueFamilyIndices indicies              = helper->find_queue_families(physicalDevice, surface);
   uint32_t           queueFamilyIndicies[] = {indicies.graphicsFamily.value(), indicies.presentFamily.value()};
 
   if (indicies.graphicsFamily != indicies.presentFamily) {

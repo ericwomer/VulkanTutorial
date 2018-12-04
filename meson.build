@@ -34,11 +34,11 @@ configure_file(input : 'src/config.h.in',
               configuration : conf_data)
 
 vktutorial_src = [
-    'src/vulkan/VulkanUtilities.cpp',
     'src/vulkan/VulkanFunctions.cpp',
     'src/vulkan/VulkanCommon.cpp',
     'src/vktutorialapp.cpp',
-    'src/main.cpp'
+    'src/main.cpp',
+    'src/vulkan/VulkanUtilities.cpp'
 ]
 
 vktutorial_include_directories = [

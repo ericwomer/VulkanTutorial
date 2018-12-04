@@ -4,6 +4,7 @@
 
 #include "VulkanCommon.h"
 #include "VulkanObjects.h"
+#include "VulkanUtilities.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -19,7 +20,8 @@ struct hash<Rake::Graphics::Object::Vertex> {
 };
 }  // namespace std
 
-namespace Rake::Graphics::Utility {
+namespace Rake { namespace Graphics {
+
 /**
  * @brief
  */
@@ -211,12 +213,12 @@ bool Helper::check_validation_layer_support()
 */
 bool Helper::is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-  QueueFamilyIndices indicies           = find_queue_families(device, surface);
-  bool               extensionSupported = check_device_extension_support(device);
-  bool               swapChainAdequate  = false;
+  Core::QueueFamilyIndices indicies           = find_queue_families(device, surface);
+  bool                     extensionSupported = check_device_extension_support(device);
+  bool                     swapChainAdequate  = false;
 
   if (extensionSupported) {
-    SwapChainSupportDetails swapChainSupport = query_swap_chain_support(device, surface);
+    Core::SwapChainSupportDetails swapChainSupport = query_swap_chain_support(device, surface);
     swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
   }
 
@@ -255,9 +257,9 @@ bool Helper::check_device_extension_support(VkPhysicalDevice device)
  * @param device
  * @return
  */
-SwapChainSupportDetails Helper::query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface)
+Core::SwapChainSupportDetails Helper::query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface)
 {
-  SwapChainSupportDetails details;
+  Core::SwapChainSupportDetails details;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
   uint32_t formatCount = 0;
@@ -285,9 +287,9 @@ SwapChainSupportDetails Helper::query_swap_chain_support(VkPhysicalDevice& devic
 * @param device
 * @return Core::QueueFamilyIndices
 */
-QueueFamilyIndices Helper::find_queue_families(VkPhysicalDevice& device, VkSurfaceKHR& surface)
+Core::QueueFamilyIndices Helper::find_queue_families(VkPhysicalDevice& device, VkSurfaceKHR& surface)
 {
-  QueueFamilyIndices indices;
+  Core::QueueFamilyIndices indices;
 
   uint32_t queueFamilyCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -319,10 +321,10 @@ QueueFamilyIndices Helper::find_queue_families(VkPhysicalDevice& device, VkSurfa
  * @brief
  *
  */
-void Helper::get_device_queues(VkDevice&           device,
-                               QueueFamilyIndices& familyIndicies,
-                               VkQueue&            presentQueue,
-                               VkQueue&            graphicsQueue)
+void Helper::get_device_queues(VkDevice&                 device,
+                               Core::QueueFamilyIndices& familyIndicies,
+                               VkQueue&                  presentQueue,
+                               VkQueue&                  graphicsQueue)
 {
   vkGetDeviceQueue(device, familyIndicies.presentFamily.value(), 0, &presentQueue);
   vkGetDeviceQueue(device, familyIndicies.graphicsFamily.value(), 0, &graphicsQueue);
@@ -381,5 +383,4 @@ VkSampleCountFlagBits Helper::get_max_usable_sample_count(VkPhysicalDevice& phys
   }
   return VK_SAMPLE_COUNT_1_BIT;
 }
-
-}  // namespace Rake::Graphics::Utility
+}}  // namespace Rake::Graphics
