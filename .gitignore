@@ -19,5 +19,10 @@ dist/share/*
 # Ignore editor saved files
 *~
 
+# Ignore Doxygen generated document files
+doc/html/
+doc/latex/
+doc/man/
+
 # Do not ignre .keep files
 !.keep

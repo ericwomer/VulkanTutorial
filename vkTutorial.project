@@ -21,6 +21,8 @@
     <File Name="src/main.cpp"/>
     <File Name="src/vktutorialapp.cpp"/>
     <VirtualDirectory Name="vulkan">
+      <File Name="src/vulkan/VulkanCore.h"/>
+      <File Name="src/vulkan/VulkanCore.cpp"/>
       <File Name="src/vulkan/VulkanFactories.h"/>
       <File Name="src/vulkan/VulkanFactories.cpp"/>
       <File Name="src/vulkan/VulkanObjects.cpp"/>
@@ -30,8 +32,6 @@
       <File Name="src/vulkan/VulkanFunctions.inl"/>
       <File Name="src/vulkan/VulkanFunctions.h"/>
       <File Name="src/vulkan/VulkanFunctions.cpp"/>
-      <File Name="src/vulkan/VulkanCommon.cpp"/>
-      <File Name="src/vulkan/VulkanCommon.h"/>
     </VirtualDirectory>
     <VirtualDirectory Name="shaders"/>
     <VirtualDirectory Name="skeleton">
@@ -88,9 +88,9 @@
       <PreBuild/>
       <PostBuild/>
       <CustomBuild Enabled="yes">
-        <RebuildCommand>ninja -C build/ clean &amp;&amp; ninja -C build</RebuildCommand>
-        <CleanCommand>ninja -C build/ clean</CleanCommand>
-        <BuildCommand>ninja -C build</BuildCommand>
+        <RebuildCommand>ninja -C /mnt/store/build/vkTutorial/ clean &amp;&amp; ninja -C /mnt/store/build/vkTutorial/</RebuildCommand>
+        <CleanCommand>ninja -C /mnt/store/build/vkTutorial/ clean</CleanCommand>
+        <BuildCommand>ninja -C /mnt/store/build/vkTutorial/</BuildCommand>
         <PreprocessFileCommand/>
         <SingleFileCommand/>
         <MakefileGenerationCommand/>

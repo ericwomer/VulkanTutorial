@@ -24,7 +24,6 @@
 #include "VulkanFunctions.h"
 #include "VulkanObjects.h"
 #include "VulkanFactories.h"
-// #include "VulkanUtilities.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -46,9 +45,16 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-class Helper;
-class Filesystem;
+// Class Forward Declaration
+namespace Factory {
+class Shader;
+}
 
+class Helper;
+class Utility;
+
+// Global validation layers and extensions
+// \todo move to config file
 /**
  * @brief Static list of application validation layers for Vulkan debugging
  *
@@ -65,6 +71,7 @@ const std::vector<const char*> instanceExtensions = {"VK_KHR_xcb_surface", "VK_K
  */
 const std::vector<const char*> deviceExtensions = {"VK_KHR_swapchain"};
 
+// Free Methods
 VkResult create_debug_util_messenger_ext(VkInstance                                instance,
                                          const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                          const VkAllocationCallbacks*              pAllocator,
@@ -78,7 +85,7 @@ template <typename T>
 std::unique_ptr<T> generate_unique_ptr();
 
 class Core {
-  public:
+public:
   Core();
   ~Core();
 
@@ -111,15 +118,16 @@ class Core {
     std::vector<VkPresentModeKHR>   presentModes;
   };
 
-  private:
+private:
   int width  = 800;
   int height = 600;
 
   const int MAX_FRAMES_IN_FLIGHT = 2;
   size_t    currentFrame         = 0;
 
-  std::unique_ptr<Helper>     helper;
-  std::unique_ptr<Filesystem> filesystem;
+  std::unique_ptr<Helper>          helper;
+  std::unique_ptr<Utility>         utility;
+  std::unique_ptr<Factory::Shader> shader;
 
   VkInstance                   instance;
   VkDebugUtilsMessengerEXT     callback;
@@ -168,8 +176,6 @@ class Core {
   std::vector<VkSemaphore> renderFinishedSemaphore;
   std::vector<VkFence>     inFlightFences;
   bool                     framebufferResized = false;
-
-  VkShaderModule create_shader_module(const VkDevice& device, const std::vector<char>& code);
 
   void* VulkanLibrary = nullptr;
   bool  canRender     = false;

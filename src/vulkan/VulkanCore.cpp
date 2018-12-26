@@ -13,8 +13,8 @@
 #include <stb_image.h>
 
 #include "VulkanFunctions.h"
-#include "VulkanCommon.h"
 #include "VulkanUtilities.h"
+#include "VulkanCore.h"
 
 namespace Rake { namespace Graphics {
 
@@ -67,8 +67,9 @@ void destroy_debug_utils_messenger_ext(VkInstance                   instance,
 
 Core::Core()
 {
-  helper     = generate_unique_ptr<Helper>();
-  filesystem = generate_unique_ptr<Filesystem>();
+  helper  = generate_unique_ptr<Helper>();
+  utility = generate_unique_ptr<Utility>();
+  shader  = generate_unique_ptr<Factory::Shader>();
 
   chalet.width       = 800;
   chalet.height      = 600;
@@ -187,8 +188,10 @@ bool Core::on_window_size_changed()
 */
 void Core::create_instance()
 {
-  if (enableValidationLayers && !helper->check_validation_layer_support()) {
-    throw std::runtime_error("\tValidation layers requested, but not available!");
+  if (enableValidationLayers) {
+    if (!helper->check_validation_layer_support(validationLayers)) {
+      throw std::runtime_error("\tValidation layers requested, but not available!");
+    }
   }
 
   VkApplicationInfo appInfo  = {};
@@ -204,7 +207,7 @@ void Core::create_instance()
   createInfo.sType                = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo     = &appInfo;
 
-  auto extensions                    = helper->get_required_extensions();
+  auto extensions                    = helper->get_required_extensions(instanceExtensions);
   createInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
   createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -404,7 +407,7 @@ void Core::init_vulkan(xcb_connection_t* connection, xcb_window_t handle)
   create_texture_image();
   create_texture_image_view();
   create_texture_sampler();
-  filesystem->load_model(chalet);
+  utility->load_model(chalet);
   create_vertex_buffer();
   create_index_buffer();
   create_uniform_buffers();
@@ -1480,39 +1483,19 @@ void Core::create_descriptor_set_layout()
 }
 
 /**
- * @brief
- *
- * @param code
- * @return VkShaderModule
- */
-VkShaderModule Core::create_shader_module(const VkDevice& device, const std::vector<char>& code)
-{
-  VkShaderModuleCreateInfo createInfo = {};
-  createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  createInfo.codeSize                 = code.size();
-  createInfo.pCode                    = reinterpret_cast<const uint32_t*>(code.data());
-
-  VkShaderModule shaderModule;
-  if (auto result = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule); result != VK_SUCCESS) {
-    throw std::runtime_error("Failed to create shader module!");
-  }
-  return shaderModule;
-}
-
-/**
 * @brief
 *
 */
 void Core::create_graphics_pipeline()
 {
-  auto vertShaderCode = filesystem->read_file("triangle.vert.spv");
-  auto fragShaderCode = filesystem->read_file("triangle.frag.spv");
+  auto vertShaderCode = utility->read_file("triangle.vert.spv");
+  auto fragShaderCode = utility->read_file("triangle.frag.spv");
 
   VkShaderModule vertShaderModule;
   VkShaderModule fragShaderModule;
 
-  vertShaderModule = create_shader_module(device, vertShaderCode);
-  fragShaderModule = create_shader_module(device, fragShaderCode);
+  vertShaderModule = shader->create_shader_module(device, vertShaderCode);
+  fragShaderModule = shader->create_shader_module(device, fragShaderCode);
 
   VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
   vertShaderStageInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

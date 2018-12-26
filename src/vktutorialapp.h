@@ -7,7 +7,7 @@
 // #include <SDL.h>
 
 #include "skeleton/skeleton.h"
-#include "vulkan/VulkanCommon.h"
+#include "vulkan/VulkanCore.h"
 
 // clang-format off
 // clang-format on

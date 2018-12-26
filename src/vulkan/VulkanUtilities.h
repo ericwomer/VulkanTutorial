@@ -3,18 +3,16 @@
 
 #include <vulkan/vulkan.h>
 
-// #include "VulkanCommon.h"
+#include "VulkanCore.h"
 
 namespace Rake { namespace Graphics {
 
 class Helper {
   public:
-  Helper(){};
-  ~Helper(){};
-  std::vector<const char*>      get_required_extensions();
+  std::vector<const char*>      get_required_extensions(const std::vector<const char*>& instanceExtensions);
   Core::SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface);
   Core::QueueFamilyIndices      find_queue_families(VkPhysicalDevice& device, VkSurfaceKHR& surface);
-  bool                          check_validation_layer_support();
+  bool                          check_validation_layer_support(const std::vector<const char*>& validationLayers);
   bool                          check_device_extension_support(VkPhysicalDevice device);
   bool                          is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface);
   void                          get_device_queues(VkDevice&                 device,
@@ -31,7 +29,7 @@ class Helper {
   VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice& physicalDevice);
 };
 
-class Filesystem {
+class Utility {
   public:
   void                     load_model(Object::Model& model);
   static std::vector<char> read_file(const std::string& filename);

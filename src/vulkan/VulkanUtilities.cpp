@@ -1,13 +1,13 @@
 #include <unordered_map>
 
-#include "VulkanFunctions.h"
-
-#include "VulkanCommon.h"
-#include "VulkanObjects.h"
-#include "VulkanUtilities.h"
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
+
+#include "VulkanFunctions.h"
+
+#include "VulkanCore.h"
+#include "VulkanObjects.h"
+#include "VulkanUtilities.h"
 
 namespace std {
 template <>
@@ -25,7 +25,7 @@ namespace Rake { namespace Graphics {
 /**
  * @brief
  */
-void Filesystem::load_model(Object::Model& model)
+void Utility::load_model(Object::Model& model)
 {
   tinyobj::attrib_t                attrib;
   std::vector<tinyobj::shape_t>    shapes;
@@ -67,7 +67,7 @@ void Filesystem::load_model(Object::Model& model)
  * @param filename
  * @return std::vector<char>
  */
-std::vector<char> Filesystem::read_file(const std::string& filename)
+std::vector<char> Utility::read_file(const std::string& filename)
 {
   std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -141,7 +141,7 @@ bool Helper::has_stencil_component(VkFormat& format)
 * extensionCount
 *
 */
-std::vector<const char*> Helper::get_required_extensions()
+std::vector<const char*> Helper::get_required_extensions(const std::vector<const char*>& instanceExtensions)
 {
   uint32_t                           instanceExtensionCount = 0;
   std::vector<VkExtensionProperties> vkInstanceExtensions;
@@ -180,18 +180,22 @@ std::vector<const char*> Helper::get_required_extensions()
 * @return true
 * @return false
 */
-bool Helper::check_validation_layer_support()
+bool Helper::check_validation_layer_support(const std::vector<const char*>& validationLayers)
 {
-  uint32_t layerCount = 0;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+  uint32_t                 layerCount = 0;
+  std::vector<std::string> activeLayers;
 
+  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
   std::vector<VkLayerProperties> availableLayers(layerCount);
   vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
+  std::cout << "Number of available validation layers " << layerCount << "\n";
+  std::cout << "Available Layers: \n";
   for (const char* layerName : validationLayers) {
     bool layerFound = false;
-
+    activeLayers.push_back(layerName);
     for (auto& layerProperties : availableLayers) {
+      std::cout << "\t" << layerProperties.layerName << "\n";
       if (strcmp(layerName, layerProperties.layerName) == 0) {
         layerFound = true;
         break;
@@ -201,6 +205,12 @@ bool Helper::check_validation_layer_support()
       return false;
     }
   }
+  std::cout << "Number of active layers " << activeLayers.size() << "\n";
+  std::cout << "Active Layers: \n";
+  for (const auto& activeLayer : activeLayers) {
+    std::cout << "\t" << activeLayer << "\n";
+  }
+
   return true;
 }
 

@@ -34,8 +34,9 @@ configure_file(input : 'src/config.h.in',
               configuration : conf_data)
 
 vktutorial_src = [
+    'src/vulkan/VulkanFactories.cpp',
     'src/vulkan/VulkanFunctions.cpp',
-    'src/vulkan/VulkanCommon.cpp',
+    'src/vulkan/VulkanCore.cpp',
     'src/vktutorialapp.cpp',
     'src/main.cpp',
     'src/vulkan/VulkanUtilities.cpp'
@@ -45,7 +46,7 @@ vktutorial_include_directories = [
     include_directories('src/'),
     include_directories('include/'),
     include_directories('thirdparty/include/'),
-    include_directories('/usr/lib/llvm-8/include/c++/v1/'),
+    include_directories('/usr/include/c++/v1/'),
     include_directories('/usr/include/')
     ]
 
@@ -56,7 +57,7 @@ vktutorial_cflags = [
 if get_option('debug') == true or get_option('buildtype') == 'debug'
   vktutorial_cflags += ['-g']
 else
-  vktutorial_cflags += ['-O2']
+  vktutorial_cflags += ['-O2', '-DNDEBUG']
 endif
 
 vktutorial_ldflags = [
